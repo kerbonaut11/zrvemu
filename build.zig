@@ -2,25 +2,17 @@ const std = @import("std");
 const Build = std.Build;
 
 pub fn build(b: *Build) void {
-    const wasm = b.option(bool, "wasm", "build for the web") orelse false;
-
-    const target = if (wasm)
-        b.resolveTargetQuery(.{
-            .cpu_arch = .wasm32,
-            .os_tag = .freestanding,
-        })
-    else
-        b.standardTargetOptions(.{});
-
-
     const exe = b.addExecutable(.{
-        .name = "riscv-in-wasm",
-        .root_module = b.addModule("riscv-emu", .{
+        .name = "zrvemu",
+        .root_module = b.addModule("zremu", .{
             .root_source_file = b.path("src/main.zig"),
-            .target = target,
+            .target = b.standardTargetOptions(.{}),
             .optimize = b.standardOptimizeOption(.{}),
         }),
     });
+
+    const mibu = b.dependency("zigtui", .{});
+    exe.root_module.addImport("zigtui", mibu.module("zigtui"));
 
     b.installArtifact(exe);
 

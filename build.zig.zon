@@ -1,6 +1,12 @@
 .{
     .name = .riscv_in_wasm,
     .version = "0.0.1",
+    .dependencies = .{
+        .zigtui = .{
+            .url = "git+https://github.com/adxdits/zigtui.git#25e5e11496a5dc98f929768a22c1d17e752cb78b",
+            .hash = "zigtui-0.1.0-U55PSImFAgBCk_ZXdlGYlX0S415PVQqXr-_FuD_u3dq-",
+        },
+    },
     .minimum_zig_version = "0.15.2",
     .paths = .{""},
     .fingerprint = 0x2cf73884c81cabb8,

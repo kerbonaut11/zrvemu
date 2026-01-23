@@ -18,8 +18,12 @@ pub fn init(gpa: Allocator, ram_size_mib: u32) !Machine {
     };
 }
 
+pub fn step(machine: *Machine) void {
+    machine.cpu.exec();
+}
+
 pub inline fn getPtr(machine: *Machine, comptime T: type, addr: u32) *T {
-    if (addr + @sizeOf(T) > machine.ram.len) unreachable;
+    if (addr +| @sizeOf(T) > machine.ram.len) unreachable;
     if (!std.mem.isAligned(addr, @alignOf(T))) unreachable;
 
     return @ptrCast(@alignCast(machine.ram.ptr + addr));
