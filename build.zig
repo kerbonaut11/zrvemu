@@ -8,7 +8,6 @@ pub fn build(b: *Build) void {
             .root_source_file = b.path("src/main.zig"),
             .target = b.standardTargetOptions(.{}),
             .optimize = b.standardOptimizeOption(.{}),
-            .valgrind = true,
         }),
     });
 
@@ -71,7 +70,7 @@ fn compileTest(b: *Build, comptime name: []const u8) *Build.Step {
         .root_module = b.addModule(name, .{
             .root_source_file = b.path("tests/" ++ name ++ ".zig"),
             .target = target,
-            .optimize = .ReleaseSmall,
+            .optimize = .ReleaseSafe,
         }),
     });
 

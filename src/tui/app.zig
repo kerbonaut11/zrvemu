@@ -6,6 +6,7 @@ const Instr = @import("../instr.zig").Instr;
 const Machine = @import("../Machine.zig");
 const disasm = @import("../disasm.zig");
 const loadElfFromPath = @import("../load_elf.zig").loadElfFromPath;
+const EmulatedTerminal = @import("Terminal.zig");
 
 const disasm_width = 64;
 const cpu_state_width = 32;
@@ -33,7 +34,10 @@ pub const Ctx = struct {
     elf_file_name: ?[]const u8,
     command_buf: std.ArrayList(u8),
 
+    emulated_terminal:EmulatedTerminal,
+
     machine: Machine,
+
 };
 
 fn handleKeyEvent(ctx: *Ctx, key: tui.events.KeyEvent) !void {
@@ -89,14 +93,20 @@ pub fn run(elf_file: ?[]const u8) !void {
         .disasm_window_width = 48,
         .cpu_state_window_width = 30,
 
+        .emulated_terminal = try .init(0, 0, gpa),
+
         .should_exit = false,
         .elf_file_name = null,
         .command_buf = .empty,
 
         .machine = try Machine.init(gpa, 124),
     };
-    defer ctx.machine.deinit();
+    ctx.machine.output_to_tui_terminal = true;
+
+
+    defer ctx.machine.deinit(ctx.gpa);
     defer ctx.command_buf.deinit(ctx.gpa);
+    defer ctx.emulated_terminal.deinit();
     defer if (ctx.elf_file_name) |mem| ctx.gpa.free(mem);
 
 
@@ -111,10 +121,10 @@ pub fn run(elf_file: ?[]const u8) !void {
         const event = try backend.interface().pollEvent(100);
         switch (event) {
             .key => |key| try handleKeyEvent(&ctx, key),
+            .resize => |size| try terminal.resize(.{.height = size.height, .width = size.width}),
             else => {},
         }
 
         try terminal.draw(&ctx, @import("render.zig").render);
     }
 }
-

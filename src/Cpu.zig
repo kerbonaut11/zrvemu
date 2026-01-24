@@ -9,6 +9,7 @@ const disam = @import("disasm.zig");
 next_pc: u32 align(64),
 pc: u32,
 regs: [32]u32,
+cycle: u64,
 
 pub const Register = u5;
 pub const zero: Register = 0;
@@ -19,6 +20,7 @@ pub fn init() Cpu {
         .regs = std.mem.zeroes([32]u32),
         .pc = 0,
         .next_pc = 0,
+        .cycle = 0,
     };
 }
 
@@ -47,6 +49,7 @@ pub fn exec(cpu: *Cpu) !void {
 
     cpu.regs[zero] = 0;
     cpu.pc = cpu.next_pc;
+    cpu.cycle += 1;
 }
 
 

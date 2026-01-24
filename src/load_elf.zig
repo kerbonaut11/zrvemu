@@ -58,7 +58,7 @@ pub fn freeFile(data: FileData) void {
 
 test {
     var machine = try Machine.init(std.testing.allocator, 32);
-    defer machine.deinit();
+    defer machine.deinit(std.testing.allocator);
     try loadElfFromPath("zig-out/bin/basic", &machine);
 
     for (0..1000) |_| machine.step();

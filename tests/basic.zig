@@ -28,7 +28,9 @@ fn debugWriterDrain(_: *std.io.Writer, data: []const []const u8, splat: usize) s
 }
 
 pub export fn main() callconv(.c) noreturn {
-    debug_writer.print("Hello, World!", .{}) catch {};
-
+    debug_writer.print("Hello World\n", .{}) catch unreachable;
+    const a = 3231313;
+    const b = 4243942;
+    debug_writer.print("gcd({}, {}) = {}", .{a, b, std.math.gcd(a, b)}) catch unreachable;
     while (true) {}
 }

@@ -2,6 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Cpu = @import("Cpu.zig");
 const Machine = @This();
+const TuiCtx = @import("tui/app.zig").Ctx;
 
 const max_aling = 64;
 const max_aling_log2 = std.mem.Alignment.@"64";
@@ -10,9 +11,9 @@ const debug_out = 0x10;
 
 const ram_start = 0x80000000;
 
-gpa: Allocator,
 cpu: Cpu,
 ram: []align(max_aling) u8,
+output_to_tui_terminal: bool,
 
 const MemFault = error {
     LoadAddressMisaligned,
@@ -23,13 +24,17 @@ pub fn init(gpa: Allocator, ram_size_mib: u32) !Machine {
     return .{
         .cpu = .init(),
         .ram = try gpa.alignedAlloc(u8, max_aling_log2, ram_size_mib*1024*1024),
-        .gpa = gpa,
+        .output_to_tui_terminal = false,
     };
+}
+
+pub fn deinit(machine: *Machine, gpa: Allocator) void {
+    gpa.free(machine.ram);
 }
 
 pub fn step(machine: *Machine) void {
     machine.cpu.exec() catch |err| switch (err) {
-        else => unreachable,
+        else => std.debug.panic("0x{x}", .{machine.cpu.pc}),
     };
 }
 
@@ -61,7 +66,10 @@ pub inline fn store(machine: *Machine, comptime T: type, val: T, addr: u32) MemF
     switch (addr) {
         debug_out => {
             const bytes: []const u8 = @ptrCast(&val);
-            std.debug.print("{u}", .{bytes[0]});
+            if (machine.output_to_tui_terminal) {
+                const ctx: *TuiCtx = @fieldParentPtr("machine", machine);
+                ctx.emulated_terminal.write(bytes[0]) catch {};
+            }
         },
 
         ram_start...std.math.maxInt(u32) => {
@@ -73,6 +81,3 @@ pub inline fn store(machine: *Machine, comptime T: type, val: T, addr: u32) MemF
     }
 }
 
-pub fn deinit(machine: *Machine) void {
-    machine.gpa.free(machine.ram);
-}

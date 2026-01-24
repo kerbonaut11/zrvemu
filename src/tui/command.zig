@@ -16,7 +16,8 @@ const ArgIter = struct {
 const CommandCallback = *const fn (*Ctx, *ArgIter) void;
 const commands = std.static_string_map.StaticStringMap(CommandCallback).initComptime(.{
     .{"q", exit}, .{"quit", exit},
-    .{"ru", runUntil},
+    .{"ru", runUntil}, .{"rununtil", runUntil},
+    .{"ms", manyStep},
 });
 
 pub fn do(ctx: *Ctx) !void {
@@ -41,6 +42,15 @@ fn runUntil(ctx: *Ctx, args: *ArgIter) void {
         std.fmt.parseInt(u32, addr_arg, 0) catch return;
 
     while (ctx.machine.cpu.pc != addr) {
+        ctx.machine.step();
+    }
+}
+
+fn manyStep(ctx: *Ctx, args: *ArgIter) void {
+    const amount_arg = args.next() orelse return;
+    const amount = std.fmt.parseInt(u32, amount_arg, 0) catch return;
+
+    for (0..amount) |_| {
         ctx.machine.step();
     }
 }
