@@ -92,17 +92,17 @@ fn renderCpuState(ctx: *Ctx, buf: *tui.render.Buffer, area: Rect) !void {
     const inner = block.inner(area);
     if (inner.height < 31) return;
 
+    var buffer: [64]u8 = undefined;
+
     for (0..31) |colum| {
         const reg = colum+1;
-        var buffer: [64]u8 = undefined;
-        const fmt = try std.fmt.bufPrint(
-            &buffer,
-            "{0s: <3} {1d: >12} 0x{1x:08}",
-            .{disasm.reg_names[reg], ctx.machine.cpu.regs[reg]}
-        );
+        const fmt = try std.fmt.bufPrint(&buffer, "{0s: <3} {1d: >12} 0x{1x:08}", .{disasm.reg_names[reg], ctx.machine.cpu.regs[reg]});
         
         buf.setString(inner.x, inner.y+@as(u16, @intCast(colum)), fmt, ctx.theme.baseStyle());
     }
+
+    const pc_fmt = try std.fmt.bufPrint(&buffer, "pc  0x{x:08}", .{ctx.machine.cpu.pc});
+    buf.setString(inner.x, inner.y+32, pc_fmt, ctx.theme.baseStyle());
 }
 
 pub fn main(elf_file: ?[]const u8) !void {
