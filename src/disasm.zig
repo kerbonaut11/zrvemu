@@ -122,14 +122,14 @@ fn load(w: *Writer, instr: Instr.IType) !void {
     const funct3: instrs.funct3.Load = @enumFromInt(instr.funct3);
 
     const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
-    try w.print("l{s: <7} {s}, {f}", .{@tagName(funct3), reg_names[instr.rd], addr});
+    try w.print("l{s: <6} {s}, {f}", .{@tagName(funct3), reg_names[instr.rd], addr});
 }
 
 fn store(w: *Writer, instr: Instr.SType) !void {
     const funct3: instrs.funct3.Store = @enumFromInt(instr.funct3);
 
     const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
-    try w.print("s{s: <7} {s}, {f}", .{@tagName(funct3), reg_names[instr.rs2], addr});
+    try w.print("s{s: <6} {s}, {f}", .{@tagName(funct3), reg_names[instr.rs2], addr});
 }
 
 
