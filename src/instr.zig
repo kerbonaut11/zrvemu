@@ -120,13 +120,13 @@ pub const funct3 = struct {
         w = 0b010,
     };
 
-    pub const Branch = packed struct(u3) {
-        invert: bool,
-        cond: enum(u2) {
-            eq  = 0b00,
-            lt  = 0b10,
-            ltu = 0b11,
-        },
+    pub const Branch = enum(u3) {
+        eq  = 0b000,
+        ne  = 0b001,
+        lt  = 0b100,
+        ge  = 0b101,
+        ltu = 0b110,
+        geu = 0b111,
     };
 };
 

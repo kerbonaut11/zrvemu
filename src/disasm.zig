@@ -134,12 +134,6 @@ fn store(w: *Writer, instr: Instr.SType) !void {
 
 
 fn branch(w: *Writer, instr: Instr.SType) !void {
-    const funct3: instrs.funct3.Branch = @bitCast(instr.funct3);
-    const memnomic = switch (funct3.cond) {
-        .eq  => if (funct3.invert) "bne"  else "beq",
-        .lt  => if (funct3.invert) "bge"  else "blt",
-        .ltu => if (funct3.invert) "bgeu" else "bltu",
-    };
-
-    try w.print(memnomic_fmt ++ "{s}, {s}, {}", .{memnomic, reg_names[instr.rs1], reg_names[instr.rs2], bit.u2i(instr.getBTypeOffset())});
+    const funct3: instrs.funct3.Branch = @enumFromInt(instr.funct3);
+    try w.print("b{s: <6} {s}, {s}, {}", .{@tagName(funct3), reg_names[instr.rs1], reg_names[instr.rs2], bit.u2i(instr.getBTypeOffset())});
 }

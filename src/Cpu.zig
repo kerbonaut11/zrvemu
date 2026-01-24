@@ -27,11 +27,11 @@ pub fn machine(cpu: *Cpu) *Machine {
 }
 
 
-pub fn exec(cpu: *Cpu) void {
+pub fn exec(cpu: *Cpu) !void {
     cpu.next_pc = cpu.pc +% @sizeOf(Instr);
-    const instr = cpu.machine().load(Instr, cpu.pc);
+    const instr = try cpu.machine().load(Instr, cpu.pc);
 
-    switch (instr.r.opcode) {
+    try switch (instr.r.opcode) {
         .op_imm => cpu.op(instr, true),
         .op     => cpu.op(instr, false),
         .load   => cpu.load(instr.i),
@@ -42,7 +42,7 @@ pub fn exec(cpu: *Cpu) void {
         .jalr   => cpu.jalr(instr.i),
         .branch => cpu.branch(instr.s),
         _ => std.debug.panic("{x}:{b:07}\n", .{cpu.pc, @intFromEnum(instr.r.opcode)}),
-    }
+    };
 
 
     cpu.regs[zero] = 0;
@@ -89,52 +89,55 @@ fn jal(cpu: *Cpu, instr: Instr.UType) void {
 fn jalr(cpu: *Cpu, instr: Instr.IType) void {
     cpu.regs[instr.rd] = cpu.next_pc;
     cpu.next_pc = cpu.regs[instr.rs1] +% instr.getImm();
-    cpu.next_pc |= ~@as(u32, 1);
+    cpu.next_pc &= ~@as(u32, 1);
 }
 
 fn branch(cpu: *Cpu, instr: Instr.SType) void {
-    const funct3: instrs.funct3.Branch = @bitCast(instr.funct3);
+    const funct3: instrs.funct3.Branch = @enumFromInt(instr.funct3);
 
     const rs1 = cpu.regs[instr.rs1];
     const rs2 = cpu.regs[instr.rs2];
 
-    const condition_met = switch (funct3.cond) {
-        .eq => rs1 == rs2,
-        .lt => bit.u2i(rs1) < bit.u2i(rs2),
+    const condition_met = switch (funct3) {
+        .eq  => rs1 == rs2,
+        .ne  => rs1 != rs2,
+        .lt  => bit.u2i(rs1) < bit.u2i(rs2),
+        .ge  => bit.u2i(rs1) >= bit.u2i(rs2),
         .ltu => rs1 < rs2,
-    } != funct3.invert;
+        .geu => rs1 >= rs2,
+    };
 
     if (condition_met) {
         cpu.next_pc = cpu.pc +% instr.getBTypeOffset();
     }
 }
 
-fn load(cpu: *Cpu, instr: Instr.IType) void {
+fn load(cpu: *Cpu, instr: Instr.IType) !void {
     const funct3: instrs.funct3.Load = @enumFromInt(instr.funct3);
     const addr = cpu.regs[instr.rs1] +% instr.getImm();
     const m= cpu.machine();
 
     const result: u32 = switch (funct3) {
-        .b  => bit.sext(m.load(i8,  addr)),
-        .bu => m.load(u8,  addr),
-        .h  => bit.sext(m.load(i16, addr)),
-        .hu => m.load(u16, addr),
-        .w  => m.load(u32, addr),
+        .b  => bit.sext(try m.load(i8,  addr)),
+        .bu => try m.load(u8,  addr),
+        .h  => bit.sext(try m.load(i16, addr)),
+        .hu => try m.load(u16, addr),
+        .w  => try m.load(u32, addr),
     };
 
     cpu.regs[instr.rd] = result;
 }
 
-fn store(cpu: *Cpu, instr: Instr.SType) void {
+fn store(cpu: *Cpu, instr: Instr.SType) !void {
     const funct3: instrs.funct3.Store = @enumFromInt(instr.funct3);
     const addr = cpu.regs[instr.rs1] +% instr.getImm();
     const val = cpu.regs[instr.rs2];
     const m= cpu.machine();
 
     switch (funct3) {
-        .b  => m.store(u8,  @truncate(val), addr),
-        .h  => m.store(u16, @truncate(val), addr),
-        .w  => m.store(u32, @truncate(val), addr),
+        .b  => try m.store(u8,  @truncate(val), addr),
+        .h  => try m.store(u16, @truncate(val), addr),
+        .w  => try m.store(u32, @truncate(val), addr),
     }
 }
 
