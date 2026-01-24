@@ -6,14 +6,18 @@ const Machine = @This();
 const max_aling = 64;
 const max_aling_log2 = std.mem.Alignment.@"64";
 
-const debug_start = 0x0;
-const debug_end   = 0x100;
+const debug_out = 0x10;
 
 const ram_start = 0x80000000;
 
 gpa: Allocator,
 cpu: Cpu,
 ram: []align(max_aling) u8,
+
+const MemFault = error {
+    LoadAddressMisaligned,
+    LoadAccessFault,
+};
 
 pub fn init(gpa: Allocator, ram_size_mib: u32) !Machine {
     return .{
@@ -24,7 +28,9 @@ pub fn init(gpa: Allocator, ram_size_mib: u32) !Machine {
 }
 
 pub fn step(machine: *Machine) void {
-    machine.cpu.exec();
+    machine.cpu.exec() catch |err| switch (err) {
+        else => unreachable,
+    };
 }
 
 pub inline fn getRamSlice(machine: *Machine, addr: u32, len: u32) []u8 {
@@ -32,25 +38,38 @@ pub inline fn getRamSlice(machine: *Machine, addr: u32, len: u32) []u8 {
     return machine.ram[(addr-ram_start)..][0..len];
 }
 
-pub inline fn load(machine: *Machine, comptime T: type, addr: u32) T {
+inline fn assertAlign(comptime T: type, addr: u32) !void {
+    if (!std.mem.isAligned(addr, @alignOf(T))) return error.LoadAddressMisaligned;
+}
+
+pub inline fn load(machine: *Machine, comptime T: type, addr: u32) MemFault!T {
+    try assertAlign(T, addr);
+
     switch (addr) {
         ram_start...std.math.maxInt(u32) => {
             const ptr: *T = @ptrCast(@alignCast(machine.ram.ptr + (addr-ram_start)));
             return ptr.*;  
         },
         
-        else => unreachable,
+        else => return error.LoadAccessFault,
     }
 }
 
-pub inline fn store(machine: *Machine, comptime T: type, val: T, addr: u32) void {
+pub inline fn store(machine: *Machine, comptime T: type, val: T, addr: u32) MemFault!void {
+    try assertAlign(T, addr);
+
     switch (addr) {
+        debug_out => {
+            const bytes: []const u8 = @ptrCast(&val);
+            std.debug.print("{u}", .{bytes[0]});
+        },
+
         ram_start...std.math.maxInt(u32) => {
             const ptr: *T = @ptrCast(@alignCast(machine.ram.ptr + (addr-ram_start)));
             ptr.* = val;  
         },
 
-        else => unreachable,
+        else => return error.LoadAccessFault,
     }
 }
 

@@ -61,5 +61,5 @@ test {
     defer machine.deinit();
     try loadElfFromPath("zig-out/bin/basic", &machine);
 
-    for (0..1000) |_| machine.cpu.exec();
+    for (0..1000) |_| machine.step();
 }

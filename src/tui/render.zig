@@ -1,13 +1,9 @@
 const std = @import("std");
-const File = std.fs.File;
 
-const Cpu = @import("Cpu.zig");
-const Instr = @import("instr.zig").Instr;
-const Machine = @import("Machine.zig");
-const disasm = @import("disasm.zig");
-
-const disasm_width = 64;
-const cpu_state_width = 32;
+const Ctx = @import("app.zig").Ctx;
+const Instr = @import("../instr.zig").Instr;
+const Machine = @import("../Machine.zig");
+const disasm = @import("../disasm.zig");
 
 const tui = @import("zigtui");
 const Terminal = tui.terminal.Terminal;
@@ -21,15 +17,7 @@ const Borders = tui.widgets.Borders;
 const Theme = tui.Theme;
 const themes = tui.themes;
 
-const Ctx = struct {
-    theme: Theme,
-    disasm_window_width: u16,
-    cpu_state_window_width: u16,
-
-    machine: Machine,
-};
-
-fn render(ctx: *Ctx, buf: *tui.render.Buffer) !void {
+pub fn render(ctx: *Ctx, buf: *tui.render.Buffer) !void {
     const area = buf.getArea();
     buf.fillArea(area, ' ', ctx.theme.baseStyle());
 
@@ -47,6 +35,12 @@ fn render(ctx: *Ctx, buf: *tui.render.Buffer) !void {
 
     try renderDisasm(ctx, buf, split1.right);
     try renderCpuState(ctx, buf, split2.right);
+
+    var command_bar_area = area;
+    command_bar_area.y += inner.height+1;
+    command_bar_area.x += 2;
+    command_bar_area.width -= 4;
+    try renderCommandBar(ctx, buf, command_bar_area);
 }
 
 fn renderDisasm(ctx: *Ctx, buf: *tui.render.Buffer, area: Rect) !void {
@@ -64,9 +58,7 @@ fn renderDisasm(ctx: *Ctx, buf: *tui.render.Buffer, area: Rect) !void {
     var addr = pc -% inner.height/2*@sizeOf(Instr);
 
     for (0..inner.height) |colum| {
-        if (!(addr +| @sizeOf(Instr) > ctx.machine.ram.len)) {
-            const instr = ctx.machine.load(Instr, addr);
-
+        if (ctx.machine.load(Instr, addr) catch null) |instr| {
             var buffer: [64]u8 = undefined;
             const fmt = try std.fmt.bufPrint(&buffer, "{f}", .{disasm{.addr = addr, .instr = instr}});
 
@@ -105,45 +97,11 @@ fn renderCpuState(ctx: *Ctx, buf: *tui.render.Buffer, area: Rect) !void {
     buf.setString(inner.x, inner.y+32, pc_fmt, ctx.theme.baseStyle());
 }
 
-pub fn main(elf_file: ?[]const u8) !void {
-    var gpa_inst = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa_inst.deinit();
-    const gpa = gpa_inst.allocator();
-
-    var backend = try tui.backend.init(gpa);
-    defer backend.deinit();
-
-    var terminal = try tui.terminal.Terminal.init(gpa, backend.interface());
-    defer terminal.deinit();
-
-    try terminal.hideCursor();
-    defer terminal.showCursor() catch {};
-
-    var ctx = Ctx{
-        .theme = tui.themes.tokyo_night,
-        .machine = try Machine.init(gpa, 124),
-        .disasm_window_width = 48,
-        .cpu_state_window_width = 30,
-    };
-    defer ctx.machine.deinit();
-
-    if (elf_file) |path| {
-        try @import("load_elf.zig").loadElfFromPath(path, &ctx.machine);
-    }
-
-    var running = true;
-    while (running) {
-        const event = try backend.interface().pollEvent(100);
-        if (event == .key) {
-            if (event.key.code == .esc or (event.key.code == .char and event.key.code.char == 'q'))
-                running = false;
-
-            if (event.key.code.char == 's') {
-                ctx.machine.step();
-            }
-        }
-
-        try terminal.draw(&ctx, render);
-    }
+fn renderCommandBar(ctx: *Ctx, buf: *tui.render.Buffer, area: Rect) !void {
+    const style = Style{.fg = ctx.theme.background, .bg = ctx.theme.border_focused};
+    buf.fillArea(area, ' ', style);
+    buf.setString(area.x, area.y, ">", style);
+    buf.setString(area.x+2, area.y, ctx.command_buf.items, style);
 }
+
 

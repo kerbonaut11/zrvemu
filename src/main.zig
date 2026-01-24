@@ -6,8 +6,7 @@ pub fn main() !void {
     _ = exe_path;
     const file_arg = args.next();
 
-    const Tui = @import("Tui.zig");
-    try Tui.main(file_arg);
+    try @import("tui/app.zig").run(file_arg);
 }
 
 test {
