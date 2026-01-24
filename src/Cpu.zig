@@ -11,6 +11,7 @@ regs: [32]u32,
 
 pub const Register = u5;
 pub const zero: Register = 0;
+pub const ra: Register = 1;
 pub const pc: Register = 31;
 
 pub fn init() Cpu {
@@ -28,14 +29,6 @@ pub fn machine(cpu: *Cpu) *Machine {
 pub fn exec(cpu: *Cpu) void {
     cpu.next_pc = cpu.regs[pc] +% @sizeOf(Instr);
     const instr = cpu.machine().load(Instr, cpu.regs[pc]);
-
-    {
-        var buffer: [64]u8 = undefined;
-        const stderr = std.debug.lockStderrWriter(&buffer);
-        defer std.debug.unlockStderrWriter();
-        disam.printWithAddr(instr, cpu.regs[pc], stderr) catch unreachable;
-        stderr.writeByte('\n') catch unreachable;
-    }
 
     switch (instr.r.opcode) {
         .op_imm => cpu.op(instr, true),

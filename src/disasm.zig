@@ -1,27 +1,37 @@
 const std = @import("std");
+const Writer = std.io.Writer;
 const instrs = @import("instr.zig");
 const Instr = instrs.Instr;
 const bit = @import("bit_manip.zig");
+const Cpu = @import("Cpu.zig");
 
-pub fn printWithAddr(instr: Instr, addr: u32, w: *std.Io.Writer) !void {
-    try w.print("{x:08}:{x:08}  ", .{addr, instr.bits});
-    try print(instr, w);
-}
+instr: Instr,
+addr: ?u32,
 
-pub fn print(instr: Instr, w: *std.Io.Writer) !void {
+pub fn format(disasm: @This(), w: *Writer) !void {
+    if (disasm.addr) |addr| {
+        try w.print("{x:08}:{x:08}  ", .{addr, disasm.instr.bits});
+    }
+
+    const instr = disasm.instr;
+
+    if (instr.bits == 0x00000013) return w.print("nop", .{});
+
     try switch (instr.r.opcode) {
-        .op_imm => opImm(instr.i, w),
-        .op     => op(instr.r, w),
-        .load   => load(instr.i, w),
-        .store  => store(instr.s, w),
-        .auipc  => auipc(instr.u, w),
-        .lui    => lui(instr.u, w),
-        .jal    => jal(instr.u, w),
-        .jalr   => unreachable,
-        .branch => unreachable,
+        .op_imm => opImm(w, instr.i),
+        .op     => op(w, instr.r),
+        .load   => load(w, instr.i),
+        .store  => store(w, instr.s),
+        .auipc  => auipc(w, instr.u),
+        .lui    => lui(w, instr.u),
+        .jal    => jal(w, instr.u),
+        .jalr   => jalr(w, instr.i),
+        .branch => branch(w, instr.s),
         _ => w.print("unimp", .{}),
     };
 }
+
+const memnomic_fmt = "{s: <8}";
 
 pub const reg_names = [32][]const u8{
     "zero",
@@ -36,16 +46,34 @@ pub const reg_names = [32][]const u8{
     "t3","t4","t5","pc",
 };
 
-fn opImm(instr: Instr.IType, w: *std.Io.Writer) !void {
+const OffsetReg = struct {
+    offset: i32,
+    reg: u5,
+
+    pub fn format(f: @This(), w: *Writer) !void {
+        if (f.reg != Cpu.zero) {
+            try w.print("{s}", .{reg_names[f.reg]});
+            if (f.offset == 0) return;
+            try w.print("{s}{}", .{if (f.offset > 0) "+" else "-", @abs(f.offset)});
+        } else {
+            try w.print("{}", .{f.offset});
+        }
+    }
+};
+
+fn opImm(w: *Writer, instr: Instr.IType) !void {
     const funct3: instrs.funct3.Op = @enumFromInt(instr.funct3);
     const funct7_modifier_bit = @as(Instr.RType, @bitCast(instr)).funct7 == 0b0100000;
 
-    const memnomic = if (funct7_modifier_bit and funct3 == .srl) "sra" else @tagName(funct3);
-    try writeMemnomicPost(memnomic, 'i', w);
-    try w.print("{s}, {s}, {}", .{reg_names[instr.rd], reg_names[instr.rs1], bit.u2i(instr.getImm())});
+    if (funct3 == .add and instr.getImm() == 0) {
+        try w.print(memnomic_fmt ++ "{s}, {s}", .{"mv", reg_names[instr.rd], reg_names[instr.rs1]});
+    } else {
+        const memnomic = if (funct7_modifier_bit and funct3 == .srl) "sra" else @tagName(funct3);
+        try w.print(memnomic_fmt ++ "{s}, {s}, {}", .{memnomic, reg_names[instr.rd], reg_names[instr.rs1], bit.u2i(instr.getImm())});
+    }
 }
 
-fn op(instr: Instr.RType, w: *std.Io.Writer) !void {
+fn op(w: *Writer, instr: Instr.RType) !void {
     const funct3: instrs.funct3.Op = @enumFromInt(instr.funct3);
     const funct7_modifier_bit = instr.funct7 == 0b0100000;
 
@@ -56,67 +84,62 @@ fn op(instr: Instr.RType, w: *std.Io.Writer) !void {
         "sub"
     else
         @tagName(funct3);
-    try writeMemnomic(memnomic, w);
 
-    try w.print("{s}, {s}, {s}", .{reg_names[instr.rd], reg_names[instr.rs1], reg_names[instr.rs2]});
+    try w.print(memnomic_fmt ++ "{s}, {s}, {s}", .{memnomic, reg_names[instr.rd], reg_names[instr.rs1], reg_names[instr.rs2]});
 }
 
-fn auipc(instr: Instr.UType, w: *std.Io.Writer) !void {
-    try writeMemnomic("auipc", w);
-    try w.print("0x{x}", .{instr.getImm()});
+fn auipc(w: *Writer, instr: Instr.UType) !void {
+    try w.print(memnomic_fmt ++ "0x{x}", .{"auipc", instr.getImm()});
 }
 
-fn lui(instr: Instr.UType, w: *std.Io.Writer) !void {
-    try writeMemnomic("lui", w);
-    try w.print("0x{x}", .{instr.getImm()});
+fn lui(w: *Writer, instr: Instr.UType) !void {
+    try w.print(memnomic_fmt ++ "0x{x}", .{"lui", instr.getImm()});
 }
 
-fn jal(instr: Instr.UType, w: *std.Io.Writer) !void {
-    try writeMemnomic(if (instr.rd == 0) "j" else "jal", w);
-    try w.print("{}", .{bit.u2i(instr.getJTypeOffset())});
+fn jal(w: *Writer, instr: Instr.UType) !void {
+    if (instr.rd == Cpu.zero) {
+        try w.print(memnomic_fmt ++ "{}", .{"j", bit.u2i(instr.getJTypeOffset())});
+    } else {
+        try w.print(memnomic_fmt ++ "{s}, {}", .{"jal", reg_names[instr.rd], bit.u2i(instr.getJTypeOffset())});
+    }
 }
 
-fn load(instr: Instr.IType, w: *std.Io.Writer) !void {
+fn jalr(w: *Writer, instr: Instr.IType) !void {
+    const src = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
+
+    if (instr.rd == Cpu.zero) {
+        if (instr.rs1 == Cpu.ra) {
+            try w.print(memnomic_fmt, .{"ret"});
+        } else {
+            try w.print(memnomic_fmt ++ "{f}", .{"jr", src});
+        }
+    } else {
+        try w.print(memnomic_fmt ++ "{s}, {f}", .{"jal", reg_names[instr.rd], src});
+    }
+}
+
+fn load(w: *Writer, instr: Instr.IType) !void {
     const funct3: instrs.funct3.Load = @enumFromInt(instr.funct3);
-    try writeMemnomicPre('l', @tagName(funct3), w);
 
-    const imm = bit.u2i(instr.getImm());
-    try w.print("{s}, {s}{s}{d}", .{reg_names[instr.rd], reg_names[instr.rs1], if (imm < 0) "-" else "+", imm});
+    const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
+    try w.print("l{s: <7} {s}, {f}", .{@tagName(funct3), reg_names[instr.rd], addr});
 }
 
-fn store(instr: Instr.SType, w: *std.Io.Writer) !void {
+fn store(w: *Writer, instr: Instr.SType) !void {
     const funct3: instrs.funct3.Store = @enumFromInt(instr.funct3);
 
-    try writeMemnomicPre('s', @tagName(funct3), w);
-
-    const imm = bit.u2i(instr.getImm());
-    try w.print("{s}, {s}{s}{d}", .{reg_names[instr.rs2], reg_names[instr.rs1], if (imm < 0) "-" else "+", imm});
+    const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
+    try w.print("s{s: <7} {s}, {f}", .{@tagName(funct3), reg_names[instr.rs2], addr});
 }
 
 
-fn writeMemnomic(memnomic: []const u8, w: *std.io.Writer) !void {
-    try writeMemnomicInner(null, memnomic, null, w);
+fn branch(w: *Writer, instr: Instr.SType) !void {
+    const funct3: instrs.funct3.Branch = @bitCast(instr.funct3);
+    const memnomic = switch (funct3.cond) {
+        .eq  => if (funct3.invert) "bne"  else "beq",
+        .lt  => if (funct3.invert) "bge"  else "blt",
+        .ltu => if (funct3.invert) "bgeu" else "bltu",
+    };
+
+    try w.print(memnomic_fmt ++ "{s}, {s}, {}", .{memnomic, reg_names[instr.rs1], reg_names[instr.rs2], bit.u2i(instr.getBTypeOffset())});
 }
-
-fn writeMemnomicPre(pre: u8, memnomic: []const u8, w: *std.io.Writer) !void {
-    try writeMemnomicInner(pre, memnomic, null, w);
-}
-
-fn writeMemnomicPost(memnomic: []const u8, post: u8, w: *std.io.Writer) !void {
-    try writeMemnomicInner(null, memnomic, post, w);
-}
-
-
-fn writeMemnomicInner(prefix: ?u8, memnomic: []const u8, postfix: ?u8, w: *std.io.Writer) !void {
-    var memnomic_align: usize = 8;
-
-    if (prefix)  |ch| {try w.writeByte(ch); memnomic_align -= 1;}
-
-    try w.writeAll(memnomic);
-    memnomic_align -= memnomic.len;
-
-    if (postfix) |ch| {try w.writeByte(ch); memnomic_align -= 1;}
-
-    try w.splatByteAll(' ', memnomic_align);
-}
-

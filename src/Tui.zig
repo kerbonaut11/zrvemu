@@ -68,15 +68,12 @@ fn renderDisasm(ctx: *Ctx, buf: *tui.render.Buffer, area: Rect) !void {
             const instr = ctx.machine.load(Instr, addr);
 
             var buffer: [64]u8 = undefined;
-            @memset(&buffer, ' ');
-
-            var writer = std.io.Writer.fixed(&buffer);
-            try disasm.printWithAddr(instr, addr, &writer);
+            const fmt = try std.fmt.bufPrint(&buffer, "{f}", .{disasm{.addr = addr, .instr = instr}});
 
             var style = ctx.theme.textStyle();
             if (pc == addr) style.bg = ctx.theme.highlight;
 
-            buf.setString(inner.x, inner.y+@as(u16, @intCast(colum)), buffer[0..inner.width], style);
+            buf.setString(inner.x, inner.y+@as(u16, @intCast(colum)), fmt, style);
         }
 
         addr +%= @sizeOf(Instr);
