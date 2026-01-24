@@ -89,11 +89,11 @@ fn op(w: *Writer, instr: Instr.RType) !void {
 }
 
 fn auipc(w: *Writer, instr: Instr.UType) !void {
-    try w.print(memnomic_fmt ++ "0x{x}", .{"auipc", instr.getImm()});
+    try w.print(memnomic_fmt ++ "{s}, 0x{x}", .{"auipc", reg_names[instr.rd], instr.getImm()});
 }
 
 fn lui(w: *Writer, instr: Instr.UType) !void {
-    try w.print(memnomic_fmt ++ "0x{x}", .{"lui", instr.getImm()});
+    try w.print(memnomic_fmt ++ "{s}, 0x{x}", .{"lui", reg_names[instr.rd], instr.getImm()});
 }
 
 fn jal(w: *Writer, instr: Instr.UType) !void {
