@@ -8,6 +8,8 @@ const FileData = []align(std.heap.page_size_min) u8;
 const Machine = @import("Machine.zig");
 const Cpu = @import("Cpu.zig");
 
+const PT_RISCV_ATTRIBUT = 1879048195;
+
 pub fn loadElf(data: FileData, machine: *Machine) !void {
     const header: *const Header = @ptrCast(data);
 
@@ -23,12 +25,12 @@ pub fn loadElf(data: FileData, machine: *Machine) !void {
     _ = section_header_strs;
 
     for (program_headers) |phdr| {
-        //std.debug.print("loaded {} bytes at 0x{x}\n", .{phdr.p_filesz, phdr.p_paddr});
-        //std.debug.print("hex: {x}\n", .{data[phdr.p_offset..][0..phdr.p_filesz]});
-        @memcpy(machine.ram[phdr.p_paddr..][0..phdr.p_filesz], data[phdr.p_offset..][0..phdr.p_filesz]);
+        if (phdr.p_filesz == 0 or phdr.p_type == PT_RISCV_ATTRIBUT) continue;
+
+        @memcpy(machine.getRamSlice(phdr.p_paddr, phdr.p_filesz), data[phdr.p_offset..][0..phdr.p_filesz]);
     }
 
-    machine.cpu.pc =  header.e_entry;
+    machine.cpu.pc = header.e_entry;
 }
 
 fn sectionHeaderStrs(data: FileData, header: *const Header, section_headers: []const SectionHeader) []const u8 {
