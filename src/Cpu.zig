@@ -59,10 +59,8 @@ fn op(cpu: *Cpu, instr: Instr, imm: bool) void {
     const rs2 = if (imm) instr.i.getImm() else cpu.regs[instr.r.rs2];
     const rs2_signed = bit.u2i(rs2);
 
-    std.debug.panic("{x} {x} {}", .{rs1, rs2, funct3});
-
     const val = switch (funct3) {
-        .add    => if (funct7_modifier_bit and !imm) rs1 -% rs2 else rs2 +% rs2,
+        .add    => if (funct7_modifier_bit and !imm) rs1 -% rs2 else rs1 +% rs2,
         .sltu   => @intFromBool(rs1 < rs2),
         .slt    => @intFromBool(rs1_signed < rs2_signed),
         .@"and" => rs1 & rs2,
