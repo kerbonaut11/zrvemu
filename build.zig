@@ -75,6 +75,7 @@ fn compileTest(b: *Build, comptime name: []const u8) *Build.Step {
     });
 
     exe.addAssemblyFile(b.path("tests/entry.S"));
+    exe.setLinkerScript(b.path("tests/link.ld"));
 
     return &b.addInstallArtifact(exe, .{}).step;
 }
