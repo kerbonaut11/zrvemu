@@ -6,6 +6,11 @@ const Machine = @This();
 const max_aling = 64;
 const max_aling_log2 = std.mem.Alignment.@"64";
 
+const debug_start = 0x0;
+const debug_end   = 0x100;
+
+const ram_start = 0x80000000;
+
 gpa: Allocator,
 cpu: Cpu,
 ram: []align(max_aling) u8,
@@ -22,19 +27,31 @@ pub fn step(machine: *Machine) void {
     machine.cpu.exec();
 }
 
-pub inline fn getPtr(machine: *Machine, comptime T: type, addr: u32) *T {
-    if (addr +| @sizeOf(T) > machine.ram.len) unreachable;
-    if (!std.mem.isAligned(addr, @alignOf(T))) unreachable;
-
-    return @ptrCast(@alignCast(machine.ram.ptr + addr));
+pub inline fn getRamSlice(machine: *Machine, addr: u32, len: u32) []u8 {
+    std.debug.assert(addr >= ram_start);
+    return machine.ram[(addr-ram_start)..][0..len];
 }
 
 pub inline fn load(machine: *Machine, comptime T: type, addr: u32) T {
-    return machine.getPtr(T, addr).*;
+    switch (addr) {
+        ram_start...std.math.maxInt(u32) => {
+            const ptr: *T = @ptrCast(@alignCast(machine.ram.ptr + (addr-ram_start)));
+            return ptr.*;  
+        },
+        
+        else => unreachable,
+    }
 }
 
 pub inline fn store(machine: *Machine, comptime T: type, val: T, addr: u32) void {
-    machine.getPtr(T, addr).* = val;
+    switch (addr) {
+        ram_start...std.math.maxInt(u32) => {
+            const ptr: *T = @ptrCast(@alignCast(machine.ram.ptr + (addr-ram_start)));
+            ptr.* = val;  
+        },
+
+        else => unreachable,
+    }
 }
 
 pub fn deinit(machine: *Machine) void {
