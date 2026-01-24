@@ -7,16 +7,17 @@ const bit = @import("bit_manip.zig");
 const disam = @import("disasm.zig");
 
 next_pc: u32 align(64),
+pc: u32,
 regs: [32]u32,
 
 pub const Register = u5;
 pub const zero: Register = 0;
 pub const ra: Register = 1;
-pub const pc: Register = 31;
 
 pub fn init() Cpu {
     return .{
         .regs = std.mem.zeroes([32]u32),
+        .pc = 0,
         .next_pc = 0,
     };
 }
@@ -27,8 +28,8 @@ pub fn machine(cpu: *Cpu) *Machine {
 
 
 pub fn exec(cpu: *Cpu) void {
-    cpu.next_pc = cpu.regs[pc] +% @sizeOf(Instr);
-    const instr = cpu.machine().load(Instr, cpu.regs[pc]);
+    cpu.next_pc = cpu.pc +% @sizeOf(Instr);
+    const instr = cpu.machine().load(Instr, cpu.pc);
 
     switch (instr.r.opcode) {
         .op_imm => cpu.op(instr, true),
@@ -40,12 +41,12 @@ pub fn exec(cpu: *Cpu) void {
         .jal    => cpu.jal(instr.u),
         .jalr   => cpu.jalr(instr.i),
         .branch => cpu.branch(instr.s),
-        _ => std.debug.panic("{x}:{b:07}\n", .{cpu.regs[pc], @intFromEnum(instr.r.opcode)}),
+        _ => std.debug.panic("{x}:{b:07}\n", .{cpu.pc, @intFromEnum(instr.r.opcode)}),
     }
 
 
     cpu.regs[zero] = 0;
-    cpu.regs[pc] = cpu.next_pc;
+    cpu.pc = cpu.next_pc;
 }
 
 
@@ -77,12 +78,12 @@ fn lui(cpu: *Cpu, instr: Instr.UType) void {
 }
 
 fn auipc(cpu: *Cpu, instr: Instr.UType) void {
-    cpu.regs[instr.rd] = cpu.regs[pc] +% instr.getImm();
+    cpu.regs[instr.rd] = cpu.pc +% instr.getImm();
 }
 
 fn jal(cpu: *Cpu, instr: Instr.UType) void {
     cpu.regs[instr.rd] = cpu.next_pc;
-    cpu.next_pc = cpu.regs[pc] +% instr.getJTypeOffset();
+    cpu.next_pc = cpu.pc +% instr.getJTypeOffset();
 }
 
 fn jalr(cpu: *Cpu, instr: Instr.IType) void {
@@ -104,7 +105,7 @@ fn branch(cpu: *Cpu, instr: Instr.SType) void {
     } != funct3.invert;
 
     if (condition_met) {
-        cpu.next_pc = cpu.regs[pc] +% instr.getBTypeOffset();
+        cpu.next_pc = cpu.pc +% instr.getBTypeOffset();
     }
 }
 

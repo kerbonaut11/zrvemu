@@ -28,7 +28,7 @@ pub fn loadElf(data: FileData, machine: *Machine) !void {
         @memcpy(machine.ram[phdr.p_paddr..][0..phdr.p_filesz], data[phdr.p_offset..][0..phdr.p_filesz]);
     }
 
-    machine.cpu.regs[Cpu.pc] =  header.e_entry;
+    machine.cpu.pc =  header.e_entry;
 }
 
 fn sectionHeaderStrs(data: FileData, header: *const Header, section_headers: []const SectionHeader) []const u8 {

@@ -60,7 +60,7 @@ fn renderDisasm(ctx: *Ctx, buf: *tui.render.Buffer, area: Rect) !void {
 
     const inner = block.inner(area);
 
-    const pc = ctx.machine.cpu.regs[Cpu.pc];
+    const pc = ctx.machine.cpu.pc;
     var addr = pc -% inner.height/2*@sizeOf(Instr);
 
     for (0..inner.height) |colum| {
