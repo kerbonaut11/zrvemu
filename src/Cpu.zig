@@ -7,6 +7,7 @@ const bit = @import("bit_manip.zig");
 const disam = @import("disasm.zig");
 const exception = @import("exception.zig");
 const Exception = exception.Exception;
+pub const Csr = @import("csr.zig").Csr;
 
 next_pc: u32 align(64),
 pc: u32,
@@ -17,58 +18,17 @@ pub const Register = u5;
 pub const zero: Register = 0;
 pub const ra: Register = 1;
 
-pub const Csr = enum(u12) {
-    cycle  = 0xc00,
-    cycleh = 0xc80,
-
-    mvendorid = 0xf11,
-    marchid,
-    mimpid,
-    mhartid,
-    mconfigptr,
-
-    mstatus = 0x300,
-    misa,
-    medeleg,
-    mideleg,
-    mie,
-    mtvec,
-    mcounteren,
-    mstatush = 0x310,
-    medelegh = 0x312,
-
-    mscratch = 0x340,
-    mepc,
-    mcause,
-    mtval,
-    mip,
-    mtinst = 0x34a,
-    mtval2,
-
-    mnscratch = 0x740,
-    mnepc,
-    mncause,
-    mnstatus = 0x744,
-
-    satp = 0x180,
-
-    pmpcfg0   = 0x3a0,
-    pmpcfg15  = 0x3af,
-    pmpaddr0  = 0x3b0,
-    pmpaddr6e = 0x3ef,
-
-    _,
-
-    pub const Set = std.EnumArray(@This(), u32);
-};
-
 pub fn init() Cpu {
-    return .{
+    var cpu =  Cpu{
         .regs = std.mem.zeroes([32]u32),
         .pc = 0,
         .next_pc = 0,
         .csrs = std.mem.zeroes(Csr.Set),
     };
+
+    cpu.csrs.set(.mhartid, 0);
+
+    return cpu;
 }
 
 pub fn machine(cpu: *Cpu) *Machine {
@@ -219,38 +179,24 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
         .csrrw, .csrrwi => {
             const csr: Csr = @enumFromInt(instr.imm);
 
-            if (instr.rd != zero) cpu.regs[instr.rd] = try cpu.readCsr(csr);
+            if (instr.rd != zero) cpu.regs[instr.rd] = try csr.read(cpu);
 
             const rs1 = if (funct3 == .csrrw) cpu.regs[instr.rs1] else instr.rs1;
-            try cpu.writeCsr(csr, rs1);
+            try csr.write(cpu, rs1);
         },
 
         .csrrs, .csrrsi, .csrrc, .csrrci => {
             const csr: Csr = @enumFromInt(instr.imm);
 
-            cpu.regs[instr.rd] = try cpu.readCsr(csr);
+            cpu.regs[instr.rd] = try csr.read(cpu);
 
             if (instr.rs1 == 0) return;
             const rs1 = if (funct3 == .csrrc or funct3 == .csrrs) cpu.regs[instr.rs1] else instr.rs1;
             const prev = cpu.csrs.get(csr);
-            try cpu.writeCsr(csr, if (funct3 == .csrrs or funct3 == .csrrsi) prev | rs1 else prev & ~rs1);
+            try csr.write(cpu, if (funct3 == .csrrs or funct3 == .csrrsi) prev | rs1 else prev & ~rs1);
         },
 
         _ => return error.IllegalInstruction,
     }
 }
-
-fn readCsr(cpu: *Cpu, csr: Csr) !u32 {
-    _ = cpu;
-    _ = csr;
-    @panic("todo");
-}
-
-fn writeCsr(cpu: *Cpu, csr: Csr, val: u32) !void {
-    _ = cpu;
-    _ = csr;
-    _ = val;
-    @panic("todo");
-}
-
 
