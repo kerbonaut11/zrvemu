@@ -76,6 +76,40 @@ pub const Csr = enum(u12) {
             _ => return error.IllegalInstruction,
         }
     }
+
+    pub fn getMStatus(cpu: *Cpu) *MStatus {
+        return @ptrCast(cpu.csrs.getPtr(.mstatus));
+    }
 };
 
+const MStatus = packed struct(u32) {
+    wpri0: u1,
+    sie: bool,
+    wpri1: u1,
+    mie: bool,
+    wpri2: u1,
+    spie: bool,
+    ube: bool,
+    mpie: bool,
+    spp: bool,
+    vs: u2,
+    mpp: Mode,
+    fs: u2,
+    xs: u2,
+    mprv: bool,
+    sum: bool,
+    mxr: bool,
+    tvm: bool,
+    tw: bool,
+    tsr: bool,
+    spelp: bool,
+    sdt: bool,
+    wpri3: u6,
+    sd: bool,
+};
 
+const testing = std.testing;
+test "MStatus Layout" {
+    try testing.expectEqual(@bitOffsetOf(MStatus, "mprv"), 17);
+    try testing.expectEqual(@bitOffsetOf(MStatus, "mpp"), 11);
+}

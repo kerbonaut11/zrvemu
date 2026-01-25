@@ -14,4 +14,6 @@ test {
     _ = @import("instr.zig");
     _ = @import("load_elf.zig");
     _ = @import("bit_manip.zig");
+    _ = @import("csr.zig");
+    _ = @import("tests.zig");
 }

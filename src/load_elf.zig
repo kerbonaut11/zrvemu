@@ -39,20 +39,25 @@ fn sectionHeaderStrs(data: FileData, header: *const Header, section_headers: []c
 }
 
 pub fn loadElfFromPath(path: []const u8, machine: *Machine) !void {
-    const data = try readFile(path);
-    defer freeFile(data);
+    const file = try std.fs.cwd().openFile(path, .{});
+    defer file.close();
+    try loadElfFromFile(file, machine);
+}
+
+pub fn loadElfFromFile(file: std.fs.File, machine: *Machine) !void {
+    const data = try readData(file);
+    defer freeData(data);
     try loadElf(data, machine);
 }
 
-pub fn readFile(path: []const u8) !FileData {
-    var file = try std.fs.cwd().openFile(path, .{});
+pub fn readData(file: std.fs.File) !FileData {
     const file_size = (try file.stat()).size;
     var reader = file.reader(&.{});
     const data = try reader.interface.readAlloc(std.heap.page_allocator, file_size);
     return @alignCast(data);
 }
 
-pub fn freeFile(data: FileData) void {
+pub fn freeData(data: FileData) void {
     std.heap.page_allocator.free(data);
 }
 

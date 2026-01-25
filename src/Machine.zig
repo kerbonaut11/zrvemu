@@ -34,6 +34,17 @@ pub fn step(machine: *Machine) void {
     };
 }
 
+pub fn runTest(machine: *Machine) !void {
+    for (0..@import("tests.zig").max_cycles) |_| {
+        machine.cpu.exec() catch |err| switch (err) {
+            error.ECallFromMMode, error.ECallFromUMode => return,
+            else => return err,
+        };
+    }
+
+    return error.TestMaxCyclesExceded;
+}
+
 pub inline fn getRamSlice(machine: *Machine, addr: u32, len: u32) []u8 {
     std.debug.assert(addr >= ram_start);
     return machine.ram[(addr-ram_start)..][0..len];

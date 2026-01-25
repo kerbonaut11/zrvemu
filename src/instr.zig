@@ -145,7 +145,8 @@ pub const funct3 = struct {
     };
 
     pub const MiscMem = enum(u3) {
-        fence = 0b000,
+        fence   = 0b000,
+        fence_i = 0b001,
         _,
     };
 };

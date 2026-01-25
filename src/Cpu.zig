@@ -172,6 +172,7 @@ fn miscMem(cpu: *Cpu, instr: Instr.IType) !void {
 
     switch (funct3) {
         .fence => {},
+        .fencei => {},
         _ => return error.IllegalInstruction,
     }
 }
@@ -190,7 +191,19 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
                     .debug      => error.IllegalInstruction,
                 },
                 .ebreak => return error.BreakPoint,
-                .sret, .mret => @panic("todo"),
+
+                .sret => @panic("todo"),
+
+                .mret => {
+                    const mstatus = Csr.getMStatus(cpu);
+                    cpu.next_pc = cpu.csrs.get(.mepc);
+                    cpu.mode = mstatus.mpp;
+                    if (cpu.mode == .machine or cpu.mode == .supervisor) mstatus.mprv = false;
+                    mstatus.mie = mstatus.mpie;
+                    mstatus.mpie = true;
+                    mstatus.mpp = .user;
+
+                },
                 _ => return error.IllegalInstruction,
             }
         },

@@ -168,7 +168,8 @@ fn misc_mem(w: *Writer, instr: Instr.IType) !void {
     const funct3: instrs.funct3.MiscMem = @enumFromInt(instr.funct3);
 
     const memnomic = switch (funct3) {
-        .fence => "fence",
+        .fence   => "fence",
+        .fence_i => "fence.i",
         _ => "unimp"
     };
 
