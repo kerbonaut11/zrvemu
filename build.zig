@@ -29,7 +29,7 @@ const Target = std.Target.riscv;
 const Feature = Target.Feature;
 const FeatureSet = std.Target.Cpu.Feature.Set;
 
-const supported_features: [2]Feature = .{.@"32bit", .i};
+const supported_features: [2]Feature = .{.@"32bit", .i, .m};
 
 fn getFeatureAddSub() struct{FeatureSet, FeatureSet} {
     @setEvalBranchQuota(10000);

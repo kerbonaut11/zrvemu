@@ -108,6 +108,17 @@ pub const Funct3 = packed union {
         @"and"  = 0b111,
     };
 
+    pub const MulDivOp = enum(u3) {
+        mul    = 0b000,
+        mulh   = 0b001,
+        mulhsu = 0b010,
+        mulhu  = 0b011,
+        div    = 0b100,
+        divu   = 0b101,
+        rem    = 0b110,
+        remu   = 0b111,
+    };
+
     pub const Load = enum(u3) {
         b  = 0b000,
         h  = 0b001,
@@ -151,6 +162,7 @@ pub const Funct3 = packed union {
     };
 
     op: Op,
+    mul_div_op: MulDivOp,
     load: Load,
     store: Store,
     branch: Branch,

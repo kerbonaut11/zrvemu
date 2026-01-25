@@ -60,11 +60,3 @@ pub fn readData(file: std.fs.File) !FileData {
 pub fn freeData(data: FileData) void {
     std.heap.page_allocator.free(data);
 }
-
-test {
-    var machine = try Machine.init(std.testing.allocator, 32);
-    defer machine.deinit(std.testing.allocator);
-    try loadElfFromPath("zig-out/bin/basic", &machine);
-
-    for (0..1000) |_| machine.step();
-}

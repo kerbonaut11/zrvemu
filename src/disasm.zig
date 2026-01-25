@@ -76,6 +76,7 @@ fn opImm(w: *Writer, instr: Instr.IType) !void {
 }
 
 fn op(w: *Writer, instr: Instr.RType) !void {
+    if (instr.funct7 == 1) return mulDivOp(w, instr);
     const funct3 = instr.funct3.op;
     const funct7_modifier_bit = instr.funct7 == 0b0100000;
 
@@ -88,6 +89,10 @@ fn op(w: *Writer, instr: Instr.RType) !void {
         @tagName(funct3);
 
     try w.print(memnomic_fmt ++ "{s}, {s}, {s}", .{memnomic, reg_names[instr.rd], reg_names[instr.rs1], reg_names[instr.rs2]});
+}
+
+fn mulDivOp(w: *Writer, instr: Instr.RType) !void {
+    try w.print(memnomic_fmt ++ "{s}, {s}, {s}", .{@tagName(instr.funct3.mul_div_op), reg_names[instr.rd], reg_names[instr.rs1], reg_names[instr.rs2]});
 }
 
 fn auipc(w: *Writer, instr: Instr.UType) !void {

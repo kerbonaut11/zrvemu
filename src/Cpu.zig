@@ -73,6 +73,11 @@ pub fn cycle(cpu: *Cpu) u64 {
 }
 
 fn op(cpu: *Cpu, instr: Instr, imm: bool) void {
+    if (instr.r.funct7 == 1 and !imm) {
+        cpu.mulDivOp(instr.r);
+        return;
+    }
+
     const funct7_modifier_bit = instr.r.funct7 == 0b0100000;
 
     const rs1 = cpu.regs[instr.r.rs1];
@@ -92,6 +97,39 @@ fn op(cpu: *Cpu, instr: Instr, imm: bool) void {
     };
 
     cpu.regs[instr.r.rd] = val;
+}
+
+fn mulDivOp(cpu: *Cpu, instr: Instr.RType) void {
+    const rs1 = cpu.regs[instr.rs1];
+    const rs1_signed = bit.u2i(rs1);
+    const rs1_sext: u64 = @bitCast(@as(i64, rs1_signed));
+    const rs2 = cpu.regs[instr.rs2];
+    const rs2_signed = bit.u2i(rs2);
+    const rs2_sext: u64 = @bitCast(@as(i64, rs2_signed));
+
+    const val: u32 = switch (instr.funct3.mul_div_op) {
+        .mul    => rs1 *% rs2,
+        .mulh   => @truncate((rs1_sext *% rs2_sext) >> 32),
+        .mulhu  => @truncate((@as(u64, rs1) *% @as(u64, rs2)) >> 32),
+        .mulhsu => @truncate((rs1_sext *% @as(u64, rs2)) >> 32),
+        .div    => bit.i2u(divOverflow(rs1_signed, rs2_signed)),
+        .divu   => if (rs2 != 0) rs1 / rs2 else std.math.maxInt(u32),
+        .rem    => bit.i2u(remOverflow(rs1_signed, rs2_signed)),
+        .remu   => if (rs2 != 0) rs1 % rs2 else rs1,
+    };
+
+    cpu.regs[instr.rd] = val;
+}
+
+fn divOverflow(rs1: i32, rs2: i32) i32 {
+    @setRuntimeSafety(false);
+    return std.math.divTrunc(i32, rs1, rs2)
+        catch |err| if (err == error.Overflow) std.math.minInt(i32) else -1;
+}
+
+fn remOverflow(rs1: i32, rs2: i32) i32 {
+    @setRuntimeSafety(false);
+    return rs1-(divOverflow(rs1, rs2)*%rs2);
 }
 
 fn lui(cpu: *Cpu, instr: Instr.UType) void {
