@@ -11,18 +11,63 @@ const Exception = exception.Exception;
 next_pc: u32 align(64),
 pc: u32,
 regs: [32]u32,
-cycle: u64,
+csrs: Csr.Set,
 
 pub const Register = u5;
 pub const zero: Register = 0;
 pub const ra: Register = 1;
+
+pub const Csr = enum(u12) {
+    cycle  = 0xc00,
+    cycleh = 0xc80,
+
+    mvendorid = 0xf11,
+    marchid,
+    mimpid,
+    mhartid,
+    mconfigptr,
+
+    mstatus = 0x300,
+    misa,
+    medeleg,
+    mideleg,
+    mie,
+    mtvec,
+    mcounteren,
+    mstatush = 0x310,
+    medelegh = 0x312,
+
+    mscratch = 0x340,
+    mepc,
+    mcause,
+    mtval,
+    mip,
+    mtinst = 0x34a,
+    mtval2,
+
+    mnscratch = 0x740,
+    mnepc,
+    mncause,
+    mnstatus = 0x744,
+
+    satp = 0x180,
+
+    pmpcfg0   = 0x3a0,
+    pmpcfg15  = 0x3af,
+    pmpaddr0  = 0x3b0,
+    pmpaddr6e = 0x3ef,
+
+    _,
+
+    pub const Set = std.EnumArray(@This(), u32);
+};
 
 pub fn init() Cpu {
     return .{
         .regs = std.mem.zeroes([32]u32),
         .pc = 0,
         .next_pc = 0,
-        .cycle = 0,
+        .csrs = std.mem.zeroes(Csr.Set),
     };
 }
 
@@ -54,9 +99,17 @@ pub fn exec(cpu: *Cpu) Exception!void {
 
     cpu.regs[zero] = 0;
     cpu.pc = cpu.next_pc;
-    cpu.cycle += 1;
+    cpu.csr(.cycle).*  +%= 1;
+    cpu.csr(.cycleh).* +%= @intFromBool(cpu.csr(.cycle).* == 0);
 }
 
+pub fn csr(cpu: *Cpu, reg: Csr) *u32 {
+    return cpu.csrs.getPtr(reg);
+}
+
+pub fn cycle(cpu: *Cpu) u64 {
+    return (@as(u64, cpu.csrs.get(.cycleh)) << 32) | cpu.csrs.get(.cycle);
+}
 
 fn op(cpu: *Cpu, instr: Instr, imm: bool) void {
     const funct3: instrs.funct3.Op = @enumFromInt(instr.r.funct3);

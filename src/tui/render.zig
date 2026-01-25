@@ -97,7 +97,7 @@ fn renderCpuState(ctx: *Ctx, buf: *Buffer, area: Rect) !void {
     const pc_fmt = try std.fmt.bufPrint(&buffer, "pc  0x{x:08}", .{ctx.machine.cpu.pc});
     buf.setString(inner.x, inner.y+31, pc_fmt, ctx.theme.baseStyle());
 
-    const cycle_fmt = try std.fmt.bufPrint(&buffer, "cycle  #{}", .{ctx.machine.cpu.cycle});
+    const cycle_fmt = try std.fmt.bufPrint(&buffer, "cycle  #{}", .{ctx.machine.cpu.cycle()});
     buf.setString(inner.x, inner.y+32, cycle_fmt, ctx.theme.baseStyle());
 }
 
