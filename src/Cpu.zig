@@ -73,7 +73,6 @@ pub fn cycle(cpu: *Cpu) u64 {
 }
 
 fn op(cpu: *Cpu, instr: Instr, imm: bool) void {
-    const funct3: instrs.funct3.Op = @enumFromInt(instr.r.funct3);
     const funct7_modifier_bit = instr.r.funct7 == 0b0100000;
 
     const rs1 = cpu.regs[instr.r.rs1];
@@ -81,7 +80,7 @@ fn op(cpu: *Cpu, instr: Instr, imm: bool) void {
     const rs2 = if (imm) instr.i.getImm() else cpu.regs[instr.r.rs2];
     const rs2_signed = bit.u2i(rs2);
 
-    const val = switch (funct3) {
+    const val = switch (instr.r.funct3.op) {
         .add    => if (funct7_modifier_bit and !imm) rs1 -% rs2 else rs1 +% rs2,
         .sltu   => @intFromBool(rs1 < rs2),
         .slt    => @intFromBool(rs1_signed < rs2_signed),
@@ -116,12 +115,10 @@ fn jalr(cpu: *Cpu, instr: Instr.IType) void {
 }
 
 fn branch(cpu: *Cpu, instr: Instr.SType) void {
-    const funct3: instrs.funct3.Branch = @enumFromInt(instr.funct3);
-
     const rs1 = cpu.regs[instr.rs1];
     const rs2 = cpu.regs[instr.rs2];
 
-    const condition_met = switch (funct3) {
+    const condition_met = switch (instr.funct3.branch) {
         .eq  => rs1 == rs2,
         .ne  => rs1 != rs2,
         .lt  => bit.u2i(rs1) < bit.u2i(rs2),
@@ -136,11 +133,10 @@ fn branch(cpu: *Cpu, instr: Instr.SType) void {
 }
 
 fn load(cpu: *Cpu, instr: Instr.IType) !void {
-    const funct3: instrs.funct3.Load = @enumFromInt(instr.funct3);
     const addr = cpu.regs[instr.rs1] +% instr.getImm();
     const m= cpu.machine();
 
-    const result: u32 = switch (funct3) {
+    const result: u32 = switch (instr.funct3.load) {
         .b  => bit.sext(try m.load(i8,  addr)),
         .bu => try m.load(u8,  addr),
         .h  => bit.sext(try m.load(i16, addr)),
@@ -153,12 +149,11 @@ fn load(cpu: *Cpu, instr: Instr.IType) !void {
 }
 
 fn store(cpu: *Cpu, instr: Instr.SType) !void {
-    const funct3: instrs.funct3.Store = @enumFromInt(instr.funct3);
     const addr = cpu.regs[instr.rs1] +% instr.getImm();
     const val = cpu.regs[instr.rs2];
     const m= cpu.machine();
 
-    switch (funct3) {
+    switch (instr.funct3.store) {
         .b  => try m.store(u8,  @truncate(val), addr),
         .h  => try m.store(u16, @truncate(val), addr),
         .w  => try m.store(u32, @truncate(val), addr),
@@ -169,9 +164,7 @@ fn store(cpu: *Cpu, instr: Instr.SType) !void {
 
 fn miscMem(cpu: *Cpu, instr: Instr.IType) !void {
     _ = cpu;
-    const funct3: instrs.funct3.MiscMem = @enumFromInt(instr.funct3);
-
-    switch (funct3) {
+    switch (instr.funct3.misc_mem) {
         .fence   => {},
         .fence_i => {},
         _ => return error.IllegalInstruction,
@@ -179,8 +172,7 @@ fn miscMem(cpu: *Cpu, instr: Instr.IType) !void {
 }
 
 fn system(cpu: *Cpu, instr: Instr.IType) !void {
-    const funct3: instrs.funct3.System = @enumFromInt(instr.funct3);
-
+    const funct3 = instr.funct3.system;
     switch (funct3) {
         .priv => {
             const imm: instrs.SystemPrivImm = @enumFromInt(instr.imm);

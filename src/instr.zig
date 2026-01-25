@@ -8,7 +8,7 @@ pub const Instr = packed union {
     pub const RType = packed struct {
         opcode: Opcode,
         rd: Register,
-        funct3: u3,
+        funct3: Funct3,
         rs1: Register,
         rs2: Register,
         funct7: u7,
@@ -17,7 +17,7 @@ pub const Instr = packed union {
     pub const IType = packed struct {
         opcode: Opcode,
         rd: Register,
-        funct3: u3,
+        funct3: Funct3,
         rs1: Register,
         imm: u12,
 
@@ -29,7 +29,7 @@ pub const Instr = packed union {
     pub const SType = packed struct {
         opcode: Opcode,
         imm_lo: u5,
-        funct3: u3,
+        funct3: Funct3,
         rs1: Register,
         rs2: Register,
         imm_hi: u7,
@@ -96,7 +96,7 @@ pub const Opcode = enum(u7) {
     _,
 };
 
-pub const funct3 = struct {
+pub const Funct3 = packed union {
     pub const Op = enum(u3) {
         add     = 0b000,
         sll     = 0b001,
@@ -149,6 +149,13 @@ pub const funct3 = struct {
         fence_i = 0b001,
         _,
     };
+
+    op: Op,
+    load: Load,
+    store: Store,
+    branch: Branch,
+    system: System,
+    misc_mem: MiscMem,
 };
 
 pub const SystemPrivImm = enum(u12) {

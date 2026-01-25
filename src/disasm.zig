@@ -64,7 +64,7 @@ const OffsetReg = struct {
 };
 
 fn opImm(w: *Writer, instr: Instr.IType) !void {
-    const funct3: instrs.funct3.Op = @enumFromInt(instr.funct3);
+    const funct3 = instr.funct3.op;
     const funct7_modifier_bit = @as(Instr.RType, @bitCast(instr)).funct7 == 0b0100000;
 
     if (funct3 == .add and instr.getImm() == 0) {
@@ -76,7 +76,7 @@ fn opImm(w: *Writer, instr: Instr.IType) !void {
 }
 
 fn op(w: *Writer, instr: Instr.RType) !void {
-    const funct3: instrs.funct3.Op = @enumFromInt(instr.funct3);
+    const funct3 = instr.funct3.op;
     const funct7_modifier_bit = instr.funct7 == 0b0100000;
 
     const memnomic = 
@@ -121,26 +121,21 @@ fn jalr(w: *Writer, instr: Instr.IType) !void {
 }
 
 fn branch(w: *Writer, instr: Instr.SType) !void {
-    const funct3: instrs.funct3.Branch = @enumFromInt(instr.funct3);
-    try w.print("b{s: <6} {s}, {s}, {}", .{@tagName(funct3), reg_names[instr.rs1], reg_names[instr.rs2], bit.u2i(instr.getBTypeOffset())});
+    try w.print("b{s: <6} {s}, {s}, {}", .{@tagName(instr.funct3.branch), reg_names[instr.rs1], reg_names[instr.rs2], bit.u2i(instr.getBTypeOffset())});
 }
 
 fn load(w: *Writer, instr: Instr.IType) !void {
-    const funct3: instrs.funct3.Load = @enumFromInt(instr.funct3);
-
     const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
-    try w.print("l{s: <6} {s}, {f}", .{@tagName(funct3), reg_names[instr.rd], addr});
+    try w.print("l{s: <6} {s}, {f}", .{@tagName(instr.funct3.load), reg_names[instr.rd], addr});
 }
 
 fn store(w: *Writer, instr: Instr.SType) !void {
-    const funct3: instrs.funct3.Store = @enumFromInt(instr.funct3);
-
     const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
-    try w.print("s{s: <6} {s}, {f}", .{@tagName(funct3), reg_names[instr.rs2], addr});
+    try w.print("s{s: <6} {s}, {f}", .{@tagName(instr.funct3.store), reg_names[instr.rs2], addr});
 }
 
 fn system(w: *Writer, instr: Instr.IType) !void {
-    const funct3: instrs.funct3.System = @enumFromInt(instr.funct3);
+    const funct3 = instr.funct3.system;
 
     switch (funct3) {
         .priv => {
@@ -154,7 +149,7 @@ fn system(w: *Writer, instr: Instr.IType) !void {
         },
 
         .csrrwi, .csrrsi, .csrrci => {
-            const non_imm_funct3: instrs.funct3.System = @enumFromInt(@intFromEnum(funct3) & 0b11);
+            const non_imm_funct3: instrs.Funct3.System = @enumFromInt(@intFromEnum(funct3) & 0b11);
             const csr: Cpu.Csr = @enumFromInt(instr.imm);
             try w.print(memnomic_fmt ++ "{s}, 0b{b}", .{@tagName(non_imm_funct3), @tagName(csr), instr.rs1});
         },
@@ -165,9 +160,7 @@ fn system(w: *Writer, instr: Instr.IType) !void {
 }
 
 fn misc_mem(w: *Writer, instr: Instr.IType) !void {
-    const funct3: instrs.funct3.MiscMem = @enumFromInt(instr.funct3);
-
-    const memnomic = switch (funct3) {
+    const memnomic = switch (instr.funct3.misc_mem) {
         .fence   => "fence",
         .fence_i => "fence.i",
         _ => "unimp"
