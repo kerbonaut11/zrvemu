@@ -43,11 +43,7 @@ pub const Ctx = struct {
 fn handleKeyEvent(ctx: *Ctx, key: tui.events.KeyEvent) !void {
     switch (key.code) {
         .char => |ch| {
-            if (ctx.command_buf.items.len == 0 and ch == 's') {
-                ctx.machine.step();
-            } else if (ch <= 0x7f) {
-                try ctx.command_buf.append(ctx.gpa, @intCast(ch));
-            }
+            try ctx.command_buf.append(ctx.gpa, @intCast(ch));
         },
 
         .enter => {
@@ -60,18 +56,6 @@ fn handleKeyEvent(ctx: *Ctx, key: tui.events.KeyEvent) !void {
         else => {},
     }
 }
-
-const ArgIter = struct {
-    iter: std.mem.SplitIterator(u8, .scalar),
-
-    fn next(args: *@This()) ?[]const u8 {
-        while (args.iter.next()) |arg| {
-            if (arg.len != 0) return arg;
-        }
-        return null;
-    }
-};
-
 pub fn run(elf_file: ?[]const u8) !void {
     var gpa_inst = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa_inst.deinit();
