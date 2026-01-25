@@ -67,11 +67,13 @@ test {
     defer test_dir.close();
 
     for (tests) |test_name| {
-        std.debug.print("{s}\n", .{test_name});
+        std.debug.print("running {s}\n", .{test_name});
 
         const file = try test_dir.openFile(test_name, .{});
         defer file.close();
 
         try runOfficialTest(file);
+
+        std.debug.print("succesful\n", .{});
     }
 }

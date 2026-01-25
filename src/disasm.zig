@@ -28,7 +28,7 @@ pub fn format(disasm: @This(), w: *Writer) !void {
         .jalr     => jalr(w, instr.i),
         .branch   => branch(w, instr.s),
         .system   => system(w, instr.i),
-        .misc_mem => misc_mem(w, instr.i),
+        .misc_mem => miscMem(w, instr.i),
         _ => w.print("unimp", .{}),
     };
 }
@@ -154,12 +154,11 @@ fn system(w: *Writer, instr: Instr.IType) !void {
             try w.print(memnomic_fmt ++ "{s}, 0b{b}", .{@tagName(non_imm_funct3), @tagName(csr), instr.rs1});
         },
 
-        //_ => try w.print(memnomic_fmt, .{"unimp"})
-        _ => @panic("a"),
+        _ => try w.print(memnomic_fmt, .{"unimp"})
     }
 }
 
-fn misc_mem(w: *Writer, instr: Instr.IType) !void {
+fn miscMem(w: *Writer, instr: Instr.IType) !void {
     const memnomic = switch (instr.funct3.misc_mem) {
         .fence   => "fence",
         .fence_i => "fence.i",
