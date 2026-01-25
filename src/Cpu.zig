@@ -5,6 +5,8 @@ const Cpu = @This();
 const Machine = @import("Machine.zig");
 const bit = @import("bit_manip.zig");
 const disam = @import("disasm.zig");
+const exception = @import("exception.zig");
+const Exception = exception.Exception;
 
 next_pc: u32 align(64),
 pc: u32,
@@ -29,21 +31,24 @@ pub fn machine(cpu: *Cpu) *Machine {
 }
 
 
-pub fn exec(cpu: *Cpu) !void {
+pub fn exec(cpu: *Cpu) Exception!void {
     cpu.next_pc = cpu.pc +% @sizeOf(Instr);
-    const instr = try cpu.machine().load(Instr, cpu.pc);
+    const instr = cpu.machine().load(Instr, cpu.pc)
+        catch |err| return exception.loadToInstrFault(err);
 
     try switch (instr.r.opcode) {
-        .op_imm => cpu.op(instr, true),
-        .op     => cpu.op(instr, false),
-        .load   => cpu.load(instr.i),
-        .store  => cpu.store(instr.s),
-        .auipc  => cpu.auipc(instr.u),
-        .lui    => cpu.lui(instr.u),
-        .jal    => cpu.jal(instr.u),
-        .jalr   => cpu.jalr(instr.i),
-        .branch => cpu.branch(instr.s),
-        _ => std.debug.panic("{x}:{b:07}\n", .{cpu.pc, @intFromEnum(instr.r.opcode)}),
+        .op_imm   => cpu.op(instr, true),
+        .op       => cpu.op(instr, false),
+        .load     => cpu.load(instr.i),
+        .store    => cpu.store(instr.s),
+        .auipc    => cpu.auipc(instr.u),
+        .lui      => cpu.lui(instr.u),
+        .jal      => cpu.jal(instr.u),
+        .jalr     => cpu.jalr(instr.i),
+        .branch   => cpu.branch(instr.s),
+        .misc_mem => cpu.misc_mem(instr.i),
+        .system   => cpu.system(instr.i),
+        _ => return error.IllegalInstruction,
     };
 
 
@@ -126,6 +131,7 @@ fn load(cpu: *Cpu, instr: Instr.IType) !void {
         .h  => bit.sext(try m.load(i16, addr)),
         .hu => try m.load(u16, addr),
         .w  => try m.load(u32, addr),
+        _ => return error.IllegalInstruction,
     };
 
     cpu.regs[instr.rd] = result;
@@ -141,6 +147,23 @@ fn store(cpu: *Cpu, instr: Instr.SType) !void {
         .b  => try m.store(u8,  @truncate(val), addr),
         .h  => try m.store(u16, @truncate(val), addr),
         .w  => try m.store(u32, @truncate(val), addr),
+        _ => return error.IllegalInstruction,
     }
 }
 
+fn system(cpu: *Cpu, instr: Instr.IType) !void {
+    _ = cpu;
+    _ = instr;
+    @panic("todo");
+}
+
+
+fn misc_mem(cpu: *Cpu, instr: Instr.IType) !void {
+    _ = cpu;
+    const funct3: instrs.funct3.MiscMem = @enumFromInt(instr.funct3);
+
+    switch (funct3) {
+        .fence => {},
+        _ => return error.IllegalInstruction,
+    }
+}

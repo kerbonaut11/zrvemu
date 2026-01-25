@@ -82,15 +82,17 @@ pub const Instr = packed union {
 };
 
 pub const Opcode = enum(u7) {
-    op_imm  = 0b0010011,
-    op      = 0b0110011,
-    load    = 0b0000011,
-    store   = 0b0100011,
-    lui     = 0b0110111,
-    auipc   = 0b0010111,
-    jal     = 0b1101111,
-    jalr    = 0b1100111,
-    branch  = 0b1100011,
+    op_imm   = 0b0010011,
+    op       = 0b0110011,
+    load     = 0b0000011,
+    store    = 0b0100011,
+    lui      = 0b0110111,
+    auipc    = 0b0010111,
+    jal      = 0b1101111,
+    jalr     = 0b1100111,
+    branch   = 0b1100011,
+    system   = 0b1110011,
+    misc_mem = 0b0001111,
     _,
 };
 
@@ -112,12 +114,14 @@ pub const funct3 = struct {
         w  = 0b010,
         bu = 0b100,
         hu = 0b101,
+        _,
     };
 
     pub const Store = enum(u3) {
         b = 0b000,
         h = 0b001,
         w = 0b010,
+        _,
     };
 
     pub const Branch = enum(u3) {
@@ -127,6 +131,11 @@ pub const funct3 = struct {
         ge  = 0b101,
         ltu = 0b110,
         geu = 0b111,
+    };
+
+    pub const MiscMem = enum(u3) {
+        fence = 0b000,
+        _,
     };
 };
 

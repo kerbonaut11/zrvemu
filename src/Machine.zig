@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 const Cpu = @import("Cpu.zig");
 const Machine = @This();
 const TuiCtx = @import("tui/app.zig").Ctx;
+const Exception = @import("exception.zig").Exception;
 
 const max_aling = 64;
 const max_aling_log2 = std.mem.Alignment.@"64";
@@ -14,11 +15,6 @@ const ram_start = 0x80000000;
 cpu: Cpu,
 ram: []align(max_aling) u8,
 output_to_tui_terminal: bool,
-
-const MemFault = error {
-    LoadAddressMisaligned,
-    LoadAccessFault,
-};
 
 pub fn init(gpa: Allocator, ram_size_mib: u32) !Machine {
     return .{
@@ -43,11 +39,11 @@ pub inline fn getRamSlice(machine: *Machine, addr: u32, len: u32) []u8 {
     return machine.ram[(addr-ram_start)..][0..len];
 }
 
-inline fn assertAlign(comptime T: type, addr: u32) !void {
+inline fn assertAlign(comptime T: type, addr: u32) Exception!void {
     if (!std.mem.isAligned(addr, @alignOf(T))) return error.LoadAddressMisaligned;
 }
 
-pub inline fn load(machine: *Machine, comptime T: type, addr: u32) MemFault!T {
+pub inline fn load(machine: *Machine, comptime T: type, addr: u32) Exception!T {
     try assertAlign(T, addr);
 
     switch (addr) {
@@ -60,7 +56,7 @@ pub inline fn load(machine: *Machine, comptime T: type, addr: u32) MemFault!T {
     }
 }
 
-pub inline fn store(machine: *Machine, comptime T: type, val: T, addr: u32) MemFault!void {
+pub inline fn store(machine: *Machine, comptime T: type, val: T, addr: u32) Exception!void {
     try assertAlign(T, addr);
 
     switch (addr) {

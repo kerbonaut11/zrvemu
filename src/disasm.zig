@@ -18,15 +18,17 @@ pub fn format(disasm: @This(), w: *Writer) !void {
     if (instr.bits == 0x00000013) return w.print("nop", .{});
 
     try switch (instr.r.opcode) {
-        .op_imm => opImm(w, instr.i),
-        .op     => op(w, instr.r),
-        .load   => load(w, instr.i),
-        .store  => store(w, instr.s),
-        .auipc  => auipc(w, instr.u),
-        .lui    => lui(w, instr.u),
-        .jal    => jal(w, instr.u),
-        .jalr   => jalr(w, instr.i),
-        .branch => branch(w, instr.s),
+        .op_imm   => opImm(w, instr.i),
+        .op       => op(w, instr.r),
+        .load     => load(w, instr.i),
+        .store    => store(w, instr.s),
+        .auipc    => auipc(w, instr.u),
+        .lui      => lui(w, instr.u),
+        .jal      => jal(w, instr.u),
+        .jalr     => jalr(w, instr.i),
+        .branch   => branch(w, instr.s),
+        .system   => system(w, instr.i),
+        .misc_mem => misc_mem(w, instr.i),
         _ => w.print("unimp", .{}),
     };
 }
@@ -118,6 +120,11 @@ fn jalr(w: *Writer, instr: Instr.IType) !void {
     }
 }
 
+fn branch(w: *Writer, instr: Instr.SType) !void {
+    const funct3: instrs.funct3.Branch = @enumFromInt(instr.funct3);
+    try w.print("b{s: <6} {s}, {s}, {}", .{@tagName(funct3), reg_names[instr.rs1], reg_names[instr.rs2], bit.u2i(instr.getBTypeOffset())});
+}
+
 fn load(w: *Writer, instr: Instr.IType) !void {
     const funct3: instrs.funct3.Load = @enumFromInt(instr.funct3);
 
@@ -132,8 +139,25 @@ fn store(w: *Writer, instr: Instr.SType) !void {
     try w.print("s{s: <6} {s}, {f}", .{@tagName(funct3), reg_names[instr.rs2], addr});
 }
 
+fn system(w: *Writer, instr: Instr.IType) !void {
+    const memnomic = switch (instr.imm) {
+        0 => "ecall",
+        1 => "ebreak",
+        else => "unimp"
+    };
 
-fn branch(w: *Writer, instr: Instr.SType) !void {
-    const funct3: instrs.funct3.Branch = @enumFromInt(instr.funct3);
-    try w.print("b{s: <6} {s}, {s}, {}", .{@tagName(funct3), reg_names[instr.rs1], reg_names[instr.rs2], bit.u2i(instr.getBTypeOffset())});
+    try w.print(memnomic_fmt, .{memnomic});
 }
+
+fn misc_mem(w: *Writer, instr: Instr.IType) !void {
+    const funct3: instrs.funct3.MiscMem = @enumFromInt(instr.funct3);
+
+    const memnomic = switch (funct3) {
+        .fence => "fence",
+        _ => "unimp"
+    };
+
+    try w.print(memnomic_fmt, .{memnomic});
+}
+
+
