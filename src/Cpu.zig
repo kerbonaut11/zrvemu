@@ -109,8 +109,9 @@ fn jal(cpu: *Cpu, instr: Instr.UType) void {
 }
 
 fn jalr(cpu: *Cpu, instr: Instr.IType) void {
+    const target_addr = cpu.regs[instr.rs1] +% instr.getImm();
     cpu.regs[instr.rd] = cpu.next_pc;
-    cpu.next_pc = cpu.regs[instr.rs1] +% instr.getImm();
+    cpu.next_pc = target_addr;
     cpu.next_pc &= ~@as(u32, 1);
 }
 
