@@ -171,8 +171,8 @@ fn miscMem(cpu: *Cpu, instr: Instr.IType) !void {
     const funct3: instrs.funct3.MiscMem = @enumFromInt(instr.funct3);
 
     switch (funct3) {
-        .fence => {},
-        .fencei => {},
+        .fence   => {},
+        .fence_i => {},
         _ => return error.IllegalInstruction,
     }
 }
