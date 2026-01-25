@@ -91,7 +91,7 @@ pub fn exec(cpu: *Cpu) Exception!void {
         .jal      => cpu.jal(instr.u),
         .jalr     => cpu.jalr(instr.i),
         .branch   => cpu.branch(instr.s),
-        .misc_mem => cpu.misc_mem(instr.i),
+        .misc_mem => cpu.miscMem(instr.i),
         .system   => cpu.system(instr.i),
         _ => return error.IllegalInstruction,
     };
@@ -99,12 +99,8 @@ pub fn exec(cpu: *Cpu) Exception!void {
 
     cpu.regs[zero] = 0;
     cpu.pc = cpu.next_pc;
-    cpu.csr(.cycle).*  +%= 1;
-    cpu.csr(.cycleh).* +%= @intFromBool(cpu.csr(.cycle).* == 0);
-}
-
-pub fn csr(cpu: *Cpu, reg: Csr) *u32 {
-    return cpu.csrs.getPtr(reg);
+    cpu.csrs.getPtr(.cycle).*  +%= 1;
+    cpu.csrs.getPtr(.cycleh).* +%= @intFromBool(cpu.csrs.get(.cycle) == 0);
 }
 
 pub fn cycle(cpu: *Cpu) u64 {
@@ -204,14 +200,8 @@ fn store(cpu: *Cpu, instr: Instr.SType) !void {
     }
 }
 
-fn system(cpu: *Cpu, instr: Instr.IType) !void {
-    _ = cpu;
-    _ = instr;
-    @panic("todo");
-}
 
-
-fn misc_mem(cpu: *Cpu, instr: Instr.IType) !void {
+fn miscMem(cpu: *Cpu, instr: Instr.IType) !void {
     _ = cpu;
     const funct3: instrs.funct3.MiscMem = @enumFromInt(instr.funct3);
 
@@ -220,3 +210,45 @@ fn misc_mem(cpu: *Cpu, instr: Instr.IType) !void {
         _ => return error.IllegalInstruction,
     }
 }
+
+fn system(cpu: *Cpu, instr: Instr.IType) !void {
+    const funct3: instrs.funct3.System = @enumFromInt(instr.funct3);
+
+    switch (funct3) {
+        .priv => @panic("todo"),
+        .csrrw, .csrrwi => {
+            const csr: Csr = @enumFromInt(instr.imm);
+
+            if (instr.rd != zero) cpu.regs[instr.rd] = cpu.readCsr(csr);
+
+            const rs1 = if (funct3 == .csrrw) cpu.regs[instr.rs1] else instr.rs1;
+            cpu.writeCsr(csr, rs1);
+        },
+
+        .csrrs, .csrrsi, .csrrc, .csrrci => {
+            const csr: Csr = @enumFromInt(instr.imm);
+
+            cpu.regs[instr.rd] = cpu.readCsr(csr);
+
+            if (instr.rs1 == 0) return;
+            const rs1 = if (funct3 == .csrrc or funct3 == .csrrs) cpu.regs[instr.rs1] else instr.rs1;
+            const prev = cpu.csrs.get(csr);
+            cpu.writeCsr(csr, if (funct3 == .csrrs or funct3 == .csrrsi) prev | rs1 else prev & ~rs1);
+        },
+
+        _ => return error.IllegalInstruction,
+    }
+}
+
+fn readCsr(cpu: *Cpu, csr: Csr) !u32 {
+    _ = cpu;
+    _ = csr;
+}
+
+fn writeCsr(cpu: *Cpu, csr: Csr, val: u32) !void {
+    _ = cpu;
+    _ = csr;
+    _ = val;
+}
+
+

@@ -140,13 +140,24 @@ fn store(w: *Writer, instr: Instr.SType) !void {
 }
 
 fn system(w: *Writer, instr: Instr.IType) !void {
-    const memnomic = switch (instr.imm) {
-        0 => "ecall",
-        1 => "ebreak",
-        else => "unimp"
-    };
+    const funct3: instrs.funct3.System = @enumFromInt(instr.funct3);
 
-    try w.print(memnomic_fmt, .{memnomic});
+    switch (funct3) {
+        .priv => try w.print(memnomic_fmt, .{if(instr.imm == 0) "ecall" else "ebreak"}),
+
+        .csrrw, .csrrs, .csrrc => {
+            const csr: Cpu.Csr = @enumFromInt(instr.imm);
+            try w.print(memnomic_fmt ++ "{}, 0b{b}", .{@tagName(funct3), @tagName(csr), reg_names[instr.rs1]});
+        },
+
+        .csrrwi, .csrrsi, .csrrci => {
+            const non_imm_funct3: instrs.funct3.System = @enumFromInt(@intFromEnum(funct3 & 0b11));
+            const csr: Cpu.Csr = @enumFromInt(instr.imm);
+            try w.print(memnomic_fmt ++ "{}, 0b{b}", .{@tagName(non_imm_funct3), @tagName(csr), instr.rs1});
+        },
+
+        _ => try w.print(memnomic_fmt, .{"unimp"})
+    }
 }
 
 fn misc_mem(w: *Writer, instr: Instr.IType) !void {

@@ -133,6 +133,17 @@ pub const funct3 = struct {
         geu = 0b111,
     };
 
+    pub const System = enum(u3) {
+        priv   = 0b000,
+        csrrw  = 0b001,
+        csrrs  = 0b010,
+        csrrc  = 0b011,
+        csrrwi = 0b101,
+        csrrsi = 0b110,
+        csrrci = 0b111,
+        _,
+    };
+
     pub const MiscMem = enum(u3) {
         fence = 0b000,
         _,
