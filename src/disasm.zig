@@ -116,7 +116,7 @@ fn jalr(w: *Writer, instr: Instr.IType) !void {
             try w.print(memnomic_fmt ++ "{f}", .{"jr", src});
         }
     } else {
-        try w.print(memnomic_fmt ++ "{s}, {f}", .{"jalr", src});
+        try w.print(memnomic_fmt ++ "{s}, {f}", .{"jalr", reg_names[instr.rd], src});
     }
 }
 
