@@ -2,6 +2,13 @@ const std = @import("std");
 const Cpu = @import("Cpu.zig");
 const Exception = @import("exception.zig").Exception;
 
+pub const Mode = enum(u2) {
+    user = 0b00,
+    supervisor = 0b01,
+    machine = 0b11,
+    debug = 0b10,
+};
+
 pub const Csr = enum(u12) {
     cycle  = 0xc00,
     cycleh = 0xc80,
@@ -42,6 +49,10 @@ pub const Csr = enum(u12) {
     pmpaddr0  = 0x3b0,
     pmpaddr6e = 0x3ef,
 
+    sstatus  = 0x100,
+    sie = 0x104,
+    stvec,
+    scounteren,
     _,
 
     pub const Set = std.EnumArray(@This(), u32);

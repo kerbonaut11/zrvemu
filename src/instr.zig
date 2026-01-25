@@ -150,6 +150,14 @@ pub const funct3 = struct {
     };
 };
 
+pub const SystemPrivImm = enum(u12) {
+    ecall = 0,
+    ebreak = 1,
+    mret = 0x302,
+    sret = 0x102,
+    _,
+};
+
 
 const testing = std.testing;
 

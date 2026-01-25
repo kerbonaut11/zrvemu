@@ -8,10 +8,14 @@ const disam = @import("disasm.zig");
 const exception = @import("exception.zig");
 const Exception = exception.Exception;
 pub const Csr = @import("csr.zig").Csr;
+pub const Mode = @import("csr.zig").Mode;
 
 next_pc: u32 align(64),
 pc: u32,
+
 regs: [32]u32,
+
+mode: Mode,
 csrs: Csr.Set,
 
 pub const Register = u5;
@@ -23,6 +27,7 @@ pub fn init() Cpu {
         .regs = std.mem.zeroes([32]u32),
         .pc = 0,
         .next_pc = 0,
+        .mode = .machine,
         .csrs = std.mem.zeroes(Csr.Set),
     };
 
@@ -175,7 +180,21 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
     const funct3: instrs.funct3.System = @enumFromInt(instr.funct3);
 
     switch (funct3) {
-        .priv => @panic("todo"),
+        .priv => {
+            const imm: instrs.SystemPrivImm = @enumFromInt(instr.imm);
+            switch (imm) {
+                .ecall => return switch (cpu.mode) {
+                    .user       => error.ECallFromUMode,
+                    .supervisor => error.ECallFromSMode,
+                    .machine    => error.ECallFromMMode,
+                    .debug      => error.IllegalInstruction,
+                },
+                .ebreak => return error.BreakPoint,
+                .sret, .mret => @panic("todo"),
+                _ => return error.IllegalInstruction,
+            }
+        },
+
         .csrrw, .csrrwi => {
             const csr: Csr = @enumFromInt(instr.imm);
 

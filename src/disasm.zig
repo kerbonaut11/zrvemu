@@ -143,7 +143,10 @@ fn system(w: *Writer, instr: Instr.IType) !void {
     const funct3: instrs.funct3.System = @enumFromInt(instr.funct3);
 
     switch (funct3) {
-        .priv => try w.print(memnomic_fmt, .{if(instr.imm == 0) "ecall" else "ebreak"}),
+        .priv => {
+            const imm: instrs.SystemPrivImm = @enumFromInt(instr.imm);
+            try w.print(memnomic_fmt, .{@tagName(imm)});
+        },
 
         .csrrw, .csrrs, .csrrc => {
             const csr: Cpu.Csr = @enumFromInt(instr.imm);

@@ -5,6 +5,11 @@ pub const Exception = error {
 
     LoadAddressMisaligned,
     LoadAccessFault,
+
+    ECallFromUMode,
+    ECallFromSMode,
+    ECallFromMMode,
+    BreakPoint,
 };
 
 pub fn loadToInstrFault(err: Exception) Exception {
