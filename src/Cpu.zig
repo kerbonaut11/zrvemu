@@ -219,21 +219,21 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
         .csrrw, .csrrwi => {
             const csr: Csr = @enumFromInt(instr.imm);
 
-            if (instr.rd != zero) cpu.regs[instr.rd] = cpu.readCsr(csr);
+            if (instr.rd != zero) cpu.regs[instr.rd] = try cpu.readCsr(csr);
 
             const rs1 = if (funct3 == .csrrw) cpu.regs[instr.rs1] else instr.rs1;
-            cpu.writeCsr(csr, rs1);
+            try cpu.writeCsr(csr, rs1);
         },
 
         .csrrs, .csrrsi, .csrrc, .csrrci => {
             const csr: Csr = @enumFromInt(instr.imm);
 
-            cpu.regs[instr.rd] = cpu.readCsr(csr);
+            cpu.regs[instr.rd] = try cpu.readCsr(csr);
 
             if (instr.rs1 == 0) return;
             const rs1 = if (funct3 == .csrrc or funct3 == .csrrs) cpu.regs[instr.rs1] else instr.rs1;
             const prev = cpu.csrs.get(csr);
-            cpu.writeCsr(csr, if (funct3 == .csrrs or funct3 == .csrrsi) prev | rs1 else prev & ~rs1);
+            try cpu.writeCsr(csr, if (funct3 == .csrrs or funct3 == .csrrsi) prev | rs1 else prev & ~rs1);
         },
 
         _ => return error.IllegalInstruction,
@@ -243,12 +243,14 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
 fn readCsr(cpu: *Cpu, csr: Csr) !u32 {
     _ = cpu;
     _ = csr;
+    @panic("todo");
 }
 
 fn writeCsr(cpu: *Cpu, csr: Csr, val: u32) !void {
     _ = cpu;
     _ = csr;
     _ = val;
+    @panic("todo");
 }
 
 
