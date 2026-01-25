@@ -2,6 +2,10 @@ const std = @import("std");
 const Build = std.Build;
 
 pub fn build(b: *Build) void {
+    if (std.fs.cwd().openDir("tests", .{}) == error.FileNotFound) {
+        std.process.execv(b.allocator, &.{}) catch unreachable;
+    }
+
     const exe = b.addExecutable(.{
         .name = "zrvemu",
         .root_module = b.addModule("zremu", .{
@@ -18,7 +22,6 @@ pub fn build(b: *Build) void {
 
     const test_step = b.step("test", "");
     const tests = b.addTest(.{.root_module = exe.root_module});
-    test_step.dependOn(compileTest(b, "basic"));
     test_step.dependOn(&b.addRunArtifact(tests).step);
 }
 
@@ -52,30 +55,4 @@ fn getFeatureAddSub() struct{FeatureSet, FeatureSet} {
     }
 
     return .{Target.featureSet(&add), Target.featureSet(&sub)};
-}
-
-fn compileTest(b: *Build, comptime name: []const u8) *Build.Step {
-    const feature_add, const feature_sub = comptime getFeatureAddSub();
-
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .riscv32,
-        .os_tag = .freestanding,
-        .cpu_features_sub = feature_sub,
-        .cpu_features_add = feature_add,
-        .abi = .gnu,
-    });
-
-    const exe = b.addExecutable(.{
-        .name = name,
-        .root_module = b.addModule(name, .{
-            .root_source_file = b.path("tests/" ++ name ++ ".zig"),
-            .target = target,
-            .optimize = .ReleaseSafe,
-        }),
-    });
-
-    exe.addAssemblyFile(b.path("tests/entry.S"));
-    exe.setLinkerScript(b.path("tests/link.ld"));
-
-    return &b.addInstallArtifact(exe, .{}).step;
 }

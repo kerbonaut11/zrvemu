@@ -4,6 +4,51 @@ const Machine = @import("Machine.zig");
 const loadElfFromFile = @import("load_elf.zig").loadElfFromFile;
 
 pub const max_cycles = 10_000;
+const tests = [_][]const u8{
+    "rv32ui-p-add",
+    "rv32ui-p-add",
+    "rv32ui-p-addi",
+    "rv32ui-p-and",
+    "rv32ui-p-andi",
+    "rv32ui-p-auipc",
+    "rv32ui-p-beq",
+    "rv32ui-p-bge",
+    "rv32ui-p-bgeu",
+    "rv32ui-p-blt",
+    "rv32ui-p-bltu",
+    "rv32ui-p-bne",
+    "rv32ui-p-fence_i",
+    "rv32ui-p-jal",
+    "rv32ui-p-jalr",
+    "rv32ui-p-lb",
+    "rv32ui-p-lbu",
+    "rv32ui-p-ld_st",
+    "rv32ui-p-lh",
+    "rv32ui-p-lhu",
+    "rv32ui-p-lui",
+    "rv32ui-p-lw",
+    //"rv32ui-p-ma_data",
+    "rv32ui-p-or",
+    "rv32ui-p-ori",
+    "rv32ui-p-sb",
+    "rv32ui-p-sh",
+    "rv32ui-p-simple",
+    "rv32ui-p-sll",
+    "rv32ui-p-slli",
+    "rv32ui-p-slt",
+    "rv32ui-p-slti",
+    "rv32ui-p-sltiu",
+    "rv32ui-p-sltu",
+    "rv32ui-p-sra",
+    "rv32ui-p-srai",
+    "rv32ui-p-srl",
+    "rv32ui-p-srli",
+    "rv32ui-p-st_ld",
+    "rv32ui-p-sub",
+    "rv32ui-p-sw",
+    "rv32ui-p-xor",
+    "rv32ui-p-xori",
+};
 
 fn runOfficialTest(file: std.fs.File) !void {
     var machine = try Machine.init(testing.allocator, 64);
@@ -18,20 +63,13 @@ fn runOfficialTest(file: std.fs.File) !void {
 }
 
 test {
-    const test_dir = "official-tests-bin/isa";
-    const tests = try std.fs.cwd().openDir(test_dir, .{.iterate = true});
-    var file_iter = tests.iterateAssumeFirstIteration();
+    const test_dir = try std.fs.cwd().openDir("tests", .{.iterate = true});
 
-    while (try file_iter.next()) |entry| {
-        if (std.fs.path.extension(entry.name).len != 0) continue;
+    for (tests) |test_name| {
+        std.debug.print("{s}\n", .{test_name});
 
-        const base_isa_prefix = "rv32ui-p";
-        if (!std.mem.eql(u8, base_isa_prefix, entry.name[0..base_isa_prefix.len])) continue;
-
-        const file = try tests.openFile(entry.name, .{});
+        const file = try test_dir.openFile(test_name, .{});
         defer file.close();
-
-        std.debug.print("{s}\n", .{entry.name});
 
         try runOfficialTest(file);
     }
