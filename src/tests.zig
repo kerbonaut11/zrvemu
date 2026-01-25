@@ -63,7 +63,8 @@ fn runOfficialTest(file: std.fs.File) !void {
 }
 
 test {
-    const test_dir = try std.fs.cwd().openDir("tests", .{.iterate = true});
+    var test_dir = try std.fs.cwd().openDir("tests", .{.iterate = true});
+    defer test_dir.close();
 
     for (tests) |test_name| {
         std.debug.print("{s}\n", .{test_name});
