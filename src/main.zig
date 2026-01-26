@@ -16,4 +16,5 @@ test {
     _ = @import("bit_manip.zig");
     _ = @import("csr.zig");
     _ = @import("tests.zig");
+    _ = @import("exception.zig");
 }

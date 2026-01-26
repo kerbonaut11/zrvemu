@@ -50,12 +50,8 @@ pub inline fn getRamSlice(machine: *Machine, addr: u32, len: u32) []u8 {
     return machine.ram[(addr-ram_start)..][0..len];
 }
 
-inline fn assertAlign(comptime T: type, addr: u32) Exception!void {
-    if (!std.mem.isAligned(addr, @alignOf(T))) return error.LoadAddressMisaligned;
-}
-
 pub inline fn load(machine: *Machine, comptime T: type, addr: u32) Exception!T {
-    try assertAlign(T, addr);
+    if (!std.mem.isAligned(addr, @alignOf(T))) return error.LoadAddressMisaligned;
 
     switch (addr) {
         ram_start...std.math.maxInt(u32) => {
@@ -68,7 +64,7 @@ pub inline fn load(machine: *Machine, comptime T: type, addr: u32) Exception!T {
 }
 
 pub inline fn store(machine: *Machine, comptime T: type, val: T, addr: u32) Exception!void {
-    try assertAlign(T, addr);
+    if (!std.mem.isAligned(addr, @alignOf(T))) return error.StoreAddressMisaligned;
 
     switch (addr) {
         debug_out => {
@@ -84,7 +80,7 @@ pub inline fn store(machine: *Machine, comptime T: type, val: T, addr: u32) Exce
             ptr.* = val;  
         },
 
-        else => return error.LoadAccessFault,
+        else => return error.StoreAccessFault,
     }
 }
 
