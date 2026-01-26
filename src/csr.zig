@@ -55,31 +55,42 @@ pub const Csr = enum(u12) {
     scounteren,
     _,
 
-    pub const Set = std.EnumArray(@This(), u32);
+    pub const Set = struct {
+        vals: [std.math.maxInt(u12)]u32,
+
+        pub inline fn get(csrs: *Set, csr: Csr) *u32 {
+            return &csrs.vals[@intFromEnum(csr)];
+        }
+
+        pub fn read(csrs: *Set, csr: Csr) !u32 {
+            switch (csr) {
+                else => return csrs.get(csr).*,
+                _ => return error.IllegalInstruction,
+            }
+        }
+
+        pub fn write(csrs: *Set, csr: Csr, val: u32) !void {
+            if (csr.isReadOnly()) return error.IllegalInstruction;
+
+            switch (csr) {
+                else => csrs.get(csr).* = val,
+                _ => return error.IllegalInstruction,
+            }
+        }
+
+        pub fn mStatus(csrs: *Set) *MStatus {
+            return @ptrCast(csrs.get(.mstatus));
+        }
+
+        pub fn mTVec(csrs: *Set) *MTVec {
+            return @ptrCast(csrs.get(.mtvec));
+        }
+    };
 
     pub fn isReadOnly(csr: Csr) bool {
         return @intFromEnum(csr) >> 10 == 0b11;
     }
 
-    pub fn read(csr: Csr, cpu: *Cpu) !u32 {
-        switch (csr) {
-            else => return cpu.csrs.get(csr),
-            _ => return error.IllegalInstruction,
-        }
-    }
-
-    pub fn write(csr: Csr, cpu: *Cpu, val: u32) !void {
-        if (csr.isReadOnly()) return error.IllegalInstruction;
-
-        switch (csr) {
-            else => cpu.csrs.set(csr, val),
-            _ => return error.IllegalInstruction,
-        }
-    }
-
-    pub fn getMStatus(cpu: *Cpu) *MStatus {
-        return @ptrCast(cpu.csrs.getPtr(.mstatus));
-    }
 };
 
 const MStatus = packed struct(u32) {
@@ -106,6 +117,16 @@ const MStatus = packed struct(u32) {
     sdt: bool,
     wpri3: u6,
     sd: bool,
+};
+
+const MTVec = packed struct(u32) {
+    mode: enum(u2) {
+        direct   = 0b00,
+        vectored = 0b01,
+        _,
+    },
+
+    addr: u30,
 };
 
 const testing = std.testing;

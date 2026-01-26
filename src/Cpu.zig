@@ -31,7 +31,7 @@ pub fn init() Cpu {
         .csrs = std.mem.zeroes(Csr.Set),
     };
 
-    cpu.csrs.set(.mhartid, 0);
+    cpu.csr(.mhartid).*= 0;
 
     return cpu;
 }
@@ -64,12 +64,12 @@ pub fn exec(cpu: *Cpu) Exception!void {
 
     cpu.regs[zero] = 0;
     cpu.pc = cpu.next_pc;
-    cpu.csrs.getPtr(.cycle).*  +%= 1;
-    cpu.csrs.getPtr(.cycleh).* +%= @intFromBool(cpu.csrs.get(.cycle) == 0);
+    cpu.csr(.cycle).*  +%= 1;
+    cpu.csr(.cycleh).* +%= @intFromBool(cpu.csrs.get(.cycle).* == 0);
 }
 
 pub fn cycle(cpu: *Cpu) u64 {
-    return (@as(u64, cpu.csrs.get(.cycleh)) << 32) | cpu.csrs.get(.cycle);
+    return (@as(u64, cpu.csr(.cycleh).*) << 32) | cpu.csrs.get(.cycle).*;
 }
 
 fn op(cpu: *Cpu, instr: Instr, imm: bool) void {
@@ -226,8 +226,8 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
                 .sret => @panic("todo"),
 
                 .mret => {
-                    const mstatus = Csr.getMStatus(cpu);
-                    cpu.next_pc = cpu.csrs.get(.mepc);
+                    const mstatus = cpu.csrs.mStatus();
+                    cpu.next_pc = cpu.csr(.mepc).*;
                     cpu.mode = mstatus.mpp;
                     if (cpu.mode == .machine or cpu.mode == .supervisor) mstatus.mprv = false;
                     mstatus.mie = mstatus.mpie;
@@ -240,26 +240,30 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
         },
 
         .csrrw, .csrrwi => {
-            const csr: Csr = @enumFromInt(instr.imm);
+            const csr_dest: Csr = @enumFromInt(instr.imm);
 
-            if (instr.rd != zero) cpu.regs[instr.rd] = try csr.read(cpu);
+            if (instr.rd != zero) cpu.regs[instr.rd] = try cpu.csrs.read(csr_dest);
 
             const rs1 = if (funct3 == .csrrw) cpu.regs[instr.rs1] else instr.rs1;
-            try csr.write(cpu, rs1);
+            try cpu.csrs.write(csr_dest, rs1);
         },
 
         .csrrs, .csrrsi, .csrrc, .csrrci => {
-            const csr: Csr = @enumFromInt(instr.imm);
+            const csr_dest: Csr = @enumFromInt(instr.imm);
 
-            cpu.regs[instr.rd] = try csr.read(cpu);
+            cpu.regs[instr.rd] = try cpu.csrs.read(csr_dest);
 
             if (instr.rs1 == 0) return;
             const rs1 = if (funct3 == .csrrc or funct3 == .csrrs) cpu.regs[instr.rs1] else instr.rs1;
-            const prev = cpu.csrs.get(csr);
-            try csr.write(cpu, if (funct3 == .csrrs or funct3 == .csrrsi) prev | rs1 else prev & ~rs1);
+            const prev = cpu.csr(csr_dest).*;
+            try cpu.csrs.write(csr_dest, if (funct3 == .csrrs or funct3 == .csrrsi) prev | rs1 else prev & ~rs1);
         },
 
         _ => return error.IllegalInstruction,
     }
+}
+
+pub inline fn csr(cpu: *Cpu, _csr: Csr) *u32 {
+    return cpu.csrs.get(_csr);
 }
 
