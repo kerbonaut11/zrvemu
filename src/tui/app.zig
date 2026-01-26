@@ -27,8 +27,6 @@ pub const Ctx = struct {
     gpa: std.mem.Allocator,
 
     theme: Theme,
-    disasm_window_width: u16,
-    cpu_state_window_width: u16,
 
     should_exit: bool,
     elf_file_name: ?[]const u8,
@@ -56,6 +54,7 @@ fn handleKeyEvent(ctx: *Ctx, key: tui.events.KeyEvent) !void {
         else => {},
     }
 }
+
 pub fn run(elf_file: ?[]const u8) !void {
     var gpa_inst = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa_inst.deinit();
@@ -74,8 +73,6 @@ pub fn run(elf_file: ?[]const u8) !void {
         .gpa = gpa,
 
         .theme = tui.themes.tokyo_night,
-        .disasm_window_width = 48,
-        .cpu_state_window_width = 30,
 
         .emulated_terminal = try .init(0, 0, gpa),
 

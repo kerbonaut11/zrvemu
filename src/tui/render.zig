@@ -17,6 +17,9 @@ const Borders = tui.widgets.Borders;
 const Theme = tui.Theme;
 const themes = tui.themes;
 
+pub const disasm_window_width = 48;
+pub const cpu_state_window_width = 30;
+
 pub fn render(ctx: *Ctx, buf: *Buffer) !void {
     const area = buf.getArea();
     buf.fillArea(area, ' ', ctx.theme.baseStyle());
@@ -30,8 +33,8 @@ pub fn render(ctx: *Ctx, buf: *Buffer) !void {
     main_block.render(area, buf);
 
     const inner = main_block.inner(buf.getArea());
-    const split1 = inner.splitHorizontal(inner.width-ctx.disasm_window_width);
-    const split2 = split1.left.splitHorizontal(split1.left.width-ctx.cpu_state_window_width);
+    const split1 = inner.splitHorizontal(inner.width-disasm_window_width);
+    const split2 = split1.left.splitHorizontal(split1.left.width-cpu_state_window_width);
 
     try renderDisasm(ctx, buf, split1.right);
     try renderCpuState(ctx, buf, split2.right);
@@ -94,11 +97,14 @@ fn renderCpuState(ctx: *Ctx, buf: *Buffer, area: Rect) !void {
         buf.setString(inner.x, inner.y+@as(u16, @intCast(row)), fmt, ctx.theme.baseStyle());
     }
 
-    const pc_fmt = try std.fmt.bufPrint(&buffer, "pc  0x{x:08}", .{ctx.machine.cpu.pc});
+    const pc_fmt = try std.fmt.bufPrint(&buffer, "pc               0x{x:08}", .{ctx.machine.cpu.pc});
     buf.setString(inner.x, inner.y+31, pc_fmt, ctx.theme.baseStyle());
 
-    const cycle_fmt = try std.fmt.bufPrint(&buffer, "cycle  #{}", .{ctx.machine.cpu.cycle()});
+    const cycle_fmt = try std.fmt.bufPrint(&buffer, "cycle {d: >21}", .{ctx.machine.cpu.cycle()});
     buf.setString(inner.x, inner.y+32, cycle_fmt, ctx.theme.baseStyle());
+
+    const mode_fmt = try std.fmt.bufPrint(&buffer, "mode {s: >22}", .{@tagName(ctx.machine.cpu.mode)});
+    buf.setString(inner.x, inner.y+33, mode_fmt, ctx.theme.baseStyle());
 }
 
 fn renderCommandBar(ctx: *Ctx, buf: *Buffer, area: Rect) !void {
