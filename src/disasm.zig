@@ -157,14 +157,14 @@ fn system(w: *Writer, instr: Instr.IType) !void {
         .csrrw, .csrrs, .csrrc => {
             const csr_name = tagName(Cpu.Csr, @enumFromInt(instr.imm))
                 orelse return w.print("unimp", .{});
-            try w.print(memnomic_fmt ++ "{s}, {s}, {s}", .{@tagName(funct3), csr_name, reg_names[instr.rd], reg_names[instr.rs1]});
+            try w.print(memnomic_fmt ++ "{s}, {s}, {s}", .{@tagName(funct3), reg_names[instr.rd], csr_name, reg_names[instr.rs1]});
         },
 
         .csrrwi, .csrrsi, .csrrci => {
             const non_imm_funct3: instrs.Funct3.System = @enumFromInt(@intFromEnum(funct3) & 0b11);
             const csr_name = tagName(Cpu.Csr, @enumFromInt(instr.imm))
                 orelse return w.print("unimp", .{});
-            try w.print(memnomic_fmt ++ "{s}, {s}, 0b{b}", .{@tagName(non_imm_funct3), csr_name, reg_names[instr.rd], instr.rs1});
+            try w.print(memnomic_fmt ++ "{s}, {s}, 0b{b}", .{@tagName(non_imm_funct3), reg_names[instr.rd], csr_name, instr.rs1});
         },
 
         _ => try w.print(memnomic_fmt, .{"unimp"})
