@@ -26,7 +26,6 @@ const tests = [_][]const u8{
     "rv32ui-p-lhu",
     "rv32ui-p-lui",
     "rv32ui-p-lw",
-    //"rv32ui-p-ma_data",
     "rv32ui-p-or",
     "rv32ui-p-ori",
     "rv32ui-p-sb",
@@ -59,6 +58,10 @@ const tests = [_][]const u8{
 
     "rv32mi-p-lh-misaligned",
     "rv32mi-p-lw-misaligned",
+    "rv32mi-p-sh-misaligned",
+    "rv32mi-p-sw-misaligned",
+    "rv32mi-p-csr",
+    "rv32mi-p-mcsr",
 };
 
 fn runOfficialTest(file: std.fs.File) !void {
@@ -70,6 +73,8 @@ fn runOfficialTest(file: std.fs.File) !void {
     try machine.runTest();
 
     try testing.expectEqual(1, try machine.load(u32, machine.to_host_addr.?));
+    try testing.expectEqual(0, try machine.load(u32, machine.to_host_addr.?+4));
+
     std.debug.print("succesful in {} cycles\n", .{machine.cpu.cycle()});
 }
 
