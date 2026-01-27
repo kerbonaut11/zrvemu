@@ -63,13 +63,13 @@ fn renderDisasm(ctx: *Ctx, buf: *Buffer, area: Rect) !void {
 
     for (0..inner.height) |row| {
         if (ctx.machine.load(Instr, addr) catch null) |instr| {
-            var buffer: [64]u8 = undefined;
+            var buffer: [128]u8 = undefined;
             const fmt = try std.fmt.bufPrint(&buffer, "{f}", .{disasm{.addr = addr, .instr = instr}});
 
             var style = ctx.theme.textStyle();
             if (pc == addr) style.bg = ctx.theme.highlight;
 
-            buf.setString(inner.x, inner.y+@as(u16, @intCast(row)), fmt, style);
+            buf.setStringTruncated(inner.x, inner.y+@as(u16, @intCast(row)), fmt, inner.width, style);
         }
 
         addr +%= @sizeOf(Instr);
