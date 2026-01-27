@@ -3,7 +3,8 @@ const Allocator = std.mem.Allocator;
 const Cpu = @import("Cpu.zig");
 const Machine = @This();
 const TuiCtx = @import("tui/app.zig").Ctx;
-const Exception = @import("exception.zig").Exception;
+const exception = @import("exception.zig");
+const Exception = exception.Exception;
 
 const max_aling = 64;
 const max_aling_log2 = std.mem.Alignment.@"64";
@@ -14,13 +15,16 @@ const ram_start = 0x80000000;
 
 cpu: Cpu,
 ram: []align(max_aling) u8,
+
 output_to_tui_terminal: bool,
+to_host_addr: ?u32,
 
 pub fn init(gpa: Allocator, ram_size_mib: u32) !Machine {
     return .{
         .cpu = .init(),
         .ram = try gpa.alignedAlloc(u8, max_aling_log2, ram_size_mib*1024*1024),
         .output_to_tui_terminal = false,
+        .to_host_addr = null,
     };
 }
 
@@ -29,17 +33,15 @@ pub fn deinit(machine: *Machine, gpa: Allocator) void {
 }
 
 pub fn step(machine: *Machine) void {
-    machine.cpu.exec() catch |err| switch (err) {
-        else => std.debug.panic("0x{x}", .{machine.cpu.pc}),
+    machine.cpu.exec() catch |exc| {
+        exception.take(&machine.cpu, exc);
     };
 }
 
 pub fn runTest(machine: *Machine) !void {
     for (0..@import("tests.zig").max_cycles) |_| {
-        machine.cpu.exec() catch |err| switch (err) {
-            error.ECallFromMMode, error.ECallFromUMode => return,
-            else => return err,
-        };
+        machine.step();
+        if (machine.cpu.last_read_addres == machine.to_host_addr.?+4) return;
     }
 
     return error.TestMaxCyclesExceded;
@@ -51,6 +53,7 @@ pub inline fn getRamSlice(machine: *Machine, addr: u32, len: u32) []u8 {
 }
 
 pub inline fn load(machine: *Machine, comptime T: type, addr: u32) Exception!T {
+    machine.cpu.last_read_addres = addr;
     if (!std.mem.isAligned(addr, @alignOf(T))) return error.LoadAddressMisaligned;
 
     switch (addr) {
@@ -64,6 +67,7 @@ pub inline fn load(machine: *Machine, comptime T: type, addr: u32) Exception!T {
 }
 
 pub inline fn store(machine: *Machine, comptime T: type, val: T, addr: u32) Exception!void {
+    machine.cpu.last_read_addres = addr;
     if (!std.mem.isAligned(addr, @alignOf(T))) return error.StoreAddressMisaligned;
 
     switch (addr) {

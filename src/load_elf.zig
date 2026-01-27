@@ -22,7 +22,19 @@ pub fn loadElf(data: FileData, machine: *Machine) !void {
     const section_headers_bytes = data[header.e_shoff..][0..header.e_shnum*@sizeOf(SectionHeader)];
     const section_headers: []const SectionHeader = @ptrCast(@alignCast(section_headers_bytes));
     const section_header_strs = sectionHeaderStrs(data, header, section_headers);
-    _ = section_header_strs;
+
+    for (section_headers) |shdr| {
+        var name  = section_header_strs[shdr.sh_name..];
+        for (name, 0..) |ch, i| {
+            if (ch == 0) {name.len = i; break;}
+        } else {
+            return error.BadElf;
+        }
+
+        if (std.mem.eql(u8, name, ".tohost")) {
+            machine.to_host_addr = shdr.sh_addr;
+        }
+    }
 
     for (program_headers) |phdr| {
         if (phdr.p_filesz == 0 or phdr.p_type == PT_RISCV_ATTRIBUT) continue;

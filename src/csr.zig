@@ -13,6 +13,13 @@ pub const Csr = enum(u12) {
     cycle  = 0xc00,
     cycleh = 0xc80,
 
+    sscratch = 0x140,
+    sepc,
+    scause,
+    stval,
+    sip,
+    scountovf = 0xda0,
+
     mvendorid = 0xf11,
     marchid,
     mimpid,

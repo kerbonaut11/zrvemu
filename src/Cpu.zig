@@ -17,6 +17,7 @@ regs: [32]u32,
 
 mode: Mode,
 csrs: Csr.Set,
+last_read_addres: u32,
 
 pub const Register = u5;
 pub const zero: Register = 0;
@@ -29,6 +30,7 @@ pub fn init() Cpu {
         .next_pc = 0,
         .mode = .machine,
         .csrs = std.mem.zeroes(Csr.Set),
+        .last_read_addres = 0,
     };
 
     cpu.csr(.mhartid).*= 0;

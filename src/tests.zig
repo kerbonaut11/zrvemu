@@ -6,7 +6,6 @@ const loadElfFromFile = @import("load_elf.zig").loadElfFromFile;
 pub const max_cycles = 10_000;
 const tests = [_][]const u8{
     "rv32ui-p-add",
-    "rv32ui-p-add",
     "rv32ui-p-addi",
     "rv32ui-p-and",
     "rv32ui-p-andi",
@@ -57,6 +56,9 @@ const tests = [_][]const u8{
     "rv32um-p-mulhu",
     "rv32um-p-rem",
     "rv32um-p-remu",
+
+    "rv32mi-p-lh-misaligned",
+    "rv32mi-p-lw-misaligned",
 };
 
 fn runOfficialTest(file: std.fs.File) !void {
@@ -67,8 +69,8 @@ fn runOfficialTest(file: std.fs.File) !void {
 
     try machine.runTest();
 
-    try testing.expectEqual(0, machine.cpu.regs[10]); //a0
-    try testing.expectEqual(93, machine.cpu.regs[17]); //a7
+    try testing.expectEqual(1, try machine.load(u32, machine.to_host_addr.?));
+    std.debug.print("succesful in {} cycles\n", .{machine.cpu.cycle()});
 }
 
 test {
@@ -82,7 +84,6 @@ test {
         defer file.close();
 
         try runOfficialTest(file);
-
-        std.debug.print("succesful\n", .{});
     }
+
 }

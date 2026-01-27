@@ -1,3 +1,6 @@
+const std = @import("std");
+const Cpu = @import("Cpu.zig");
+
 pub const Exception = error {
     SupervisorSoftwareInterrupt,
     MachineSoftwareInterrupt,
@@ -34,16 +37,16 @@ pub const Exception = error {
     HardwareError,
 };
 
-pub fn loadToInstrFault(err: Exception) Exception {
-    return switch (err) {
+pub fn loadToInstrFault(exc: Exception) Exception {
+    return switch (exc) {
         error.LoadAccessFault => error.InstructionAccessFault,
         error.LoadAddressMisaligned => error.LoadAddressMisaligned,
-        else => err,
+        else => exc,
     };
 }
 
-pub fn isInterrupt(err: Exception) bool {
-    return switch (err) {
+pub fn isInterrupt(exc: Exception) bool {
+    return switch (exc) {
         error.SupervisorSoftwareInterrupt,
         error.MachineSoftwareInterrupt,
         error.SupervisorTimerInterrupt,
@@ -56,8 +59,8 @@ pub fn isInterrupt(err: Exception) bool {
     };
 }
 
-pub fn exceptionCode(err: Exception) u32 {
-    return switch (err) {
+pub fn code(exc: Exception) u32 {
+    return switch (exc) {
         error.SupervisorSoftwareInterrupt => 1,
         error.MachineSoftwareInterrupt => 3,
 
@@ -92,4 +95,59 @@ pub fn exceptionCode(err: Exception) u32 {
         error.SoftwareCheck => 18,
         error.HardwareError => 19,
     };
+}
+
+pub fn mtval(cpu: *Cpu, exc: Exception) u32 {
+    return switch (exc) {
+        error.LoadAccessFault,
+        error.LoadAddressMisaligned,
+        error.LoadPageFault,
+        error.StoreAccessFault,
+        error.StoreAddressMisaligned,
+        error.StorePageFault => cpu.last_read_addres,
+
+        error.InstructionAccessFault,
+        error.InstructionAddressMisaligned,
+        error.InstructionPageFault,
+        error.BreakPoint => cpu.pc,
+
+        error.ECallFromUMode,
+        error.ECallFromSMode,
+        error.ECallFromMMode,
+        error.IllegalInstruction => 0,
+        else => std.debug.panic("todo {}\n", .{exc}),
+    };
+}
+
+
+pub fn take(cpu: *Cpu, exception: Exception) void {
+    const medeleg = (@as(u64, cpu.csr(.medelegh).*) << 32) | cpu.csrs.get(.medeleg).*;
+    const mideleg: u64 = cpu.csr(.mideleg).*;
+    const deleg = if (isInterrupt(exception)) mideleg else medeleg;
+
+    if (cpu.mode != .machine and (deleg >> @intCast(code(exception))) & 1 == 1) {
+        @panic("todo supervisor interrupt");
+    } else {
+        takeMachine(cpu, exception);
+    }
+}
+
+pub fn takeMachine(cpu: *Cpu, exception: Exception) void {
+    cpu.csr(.mepc).* = cpu.pc & ~@as(u32, 1);
+    cpu.csr(.mcause).* = @as(u32, @intFromBool(isInterrupt(exception))) << 31 | code(exception);
+    cpu.csr(.mtval).* = mtval(cpu, exception);
+
+    const mtvec = cpu.csrs.mTVec();
+    cpu.pc = switch (cpu.csrs.mTVec().mode) {
+        .direct => @as(u32, mtvec.addr) << 2,
+        .vectored => @panic("todo"),
+        _ => @panic("illegal mtvec"),
+    };
+
+    
+    const mstatus = cpu.csrs.mStatus();
+    mstatus.mpie = mstatus.mie;
+    mstatus.mie = false;
+    mstatus.mpp = cpu.mode;
+    cpu.mode = .machine;
 }
