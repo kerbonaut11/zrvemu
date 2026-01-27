@@ -4,6 +4,7 @@ const instrs = @import("instr.zig");
 const Instr = instrs.Instr;
 const bit = @import("bit_manip.zig");
 const Cpu = @import("Cpu.zig");
+const tagName = std.enums.tagName;
 
 instr: Instr,
 addr: ?u32,
@@ -131,12 +132,16 @@ fn branch(w: *Writer, instr: Instr.SType) !void {
 
 fn load(w: *Writer, instr: Instr.IType) !void {
     const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
-    try w.print("l{s: <6} {s}, {f}", .{@tagName(instr.funct3.load), reg_names[instr.rd], addr});
+    const funct3_name = tagName(instrs.Funct3.Load, instr.funct3.load)
+        orelse return w.print("unimp", .{});
+    try w.print("l{s: <6} {s}, {f}", .{funct3_name, reg_names[instr.rd], addr});
 }
 
 fn store(w: *Writer, instr: Instr.SType) !void {
     const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
-    try w.print("s{s: <6} {s}, {f}", .{@tagName(instr.funct3.store), reg_names[instr.rs2], addr});
+    const funct3_name = tagName(instrs.Funct3.Store, instr.funct3.store)
+        orelse return w.print("unimp", .{});
+    try w.print("s{s: <6} {s}, {f}", .{funct3_name, reg_names[instr.rs2], addr});
 }
 
 fn system(w: *Writer, instr: Instr.IType) !void {
@@ -144,19 +149,22 @@ fn system(w: *Writer, instr: Instr.IType) !void {
 
     switch (funct3) {
         .priv => {
-            const imm: instrs.SystemPrivImm = @enumFromInt(instr.imm);
-            try w.print(memnomic_fmt, .{@tagName(imm)});
+            const imm = tagName(instrs.SystemPrivImm, @enumFromInt(instr.imm))
+                orelse return w.print("unimp", .{});
+            try w.print(memnomic_fmt, .{imm});
         },
 
         .csrrw, .csrrs, .csrrc => {
-            const csr: Cpu.Csr = @enumFromInt(instr.imm);
-            try w.print(memnomic_fmt ++ "{s}, {s}", .{@tagName(funct3), @tagName(csr), reg_names[instr.rs1]});
+            const csr_name = tagName(Cpu.Csr, @enumFromInt(instr.imm))
+                orelse return w.print("unimp", .{});
+            try w.print(memnomic_fmt ++ "{s}, {s}, {s}", .{@tagName(funct3), csr_name, reg_names[instr.rd], reg_names[instr.rs1]});
         },
 
         .csrrwi, .csrrsi, .csrrci => {
             const non_imm_funct3: instrs.Funct3.System = @enumFromInt(@intFromEnum(funct3) & 0b11);
-            const csr: Cpu.Csr = @enumFromInt(instr.imm);
-            try w.print(memnomic_fmt ++ "{s}, 0b{b}", .{@tagName(non_imm_funct3), @tagName(csr), instr.rs1});
+            const csr_name = tagName(Cpu.Csr, @enumFromInt(instr.imm))
+                orelse return w.print("unimp", .{});
+            try w.print(memnomic_fmt ++ "{s}, {s}, 0b{b}", .{@tagName(non_imm_funct3), csr_name, reg_names[instr.rd], instr.rs1});
         },
 
         _ => try w.print(memnomic_fmt, .{"unimp"})
