@@ -243,22 +243,23 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
 
         .csrrw, .csrrwi => {
             const csr_dest: Csr = @enumFromInt(instr.imm);
+            const rs1 = if (funct3 == .csrrw) cpu.regs[instr.rs1] else instr.rs1;
 
             if (instr.rd != zero) cpu.regs[instr.rd] = try cpu.csrs.read(csr_dest);
 
-            const rs1 = if (funct3 == .csrrw) cpu.regs[instr.rs1] else instr.rs1;
             try cpu.csrs.write(csr_dest, rs1);
         },
 
         .csrrs, .csrrsi, .csrrc, .csrrci => {
             const csr_dest: Csr = @enumFromInt(instr.imm);
+            const rs1 = if (funct3 == .csrrc or funct3 == .csrrs) cpu.regs[instr.rs1] else instr.rs1;
 
             cpu.regs[instr.rd] = try cpu.csrs.read(csr_dest);
 
             if (instr.rs1 == 0) return;
-            const rs1 = if (funct3 == .csrrc or funct3 == .csrrs) cpu.regs[instr.rs1] else instr.rs1;
-            const prev = cpu.csr(csr_dest).*;
-            try cpu.csrs.write(csr_dest, if (funct3 == .csrrs or funct3 == .csrrsi) prev | rs1 else prev & ~rs1);
+            const csr_val = cpu.csr(csr_dest).*;
+            const masked = if (funct3 == .csrrs or funct3 == .csrrsi) csr_val | rs1 else csr_val & ~rs1;
+            try cpu.csrs.write(csr_dest, masked);
         },
 
         _ => return error.IllegalInstruction,
