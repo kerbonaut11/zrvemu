@@ -34,6 +34,7 @@ pub fn init() Cpu {
     };
 
     cpu.csr(.mhartid).*= 0;
+    cpu.csrs.misa().* = .{};
 
     return cpu;
 }
@@ -228,7 +229,7 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
                 .sret => @panic("todo"),
 
                 .mret => {
-                    const mstatus = cpu.csrs.mStatus();
+                    const mstatus = cpu.csrs.mstatus();
                     cpu.next_pc = cpu.csr(.mepc).*;
                     cpu.mode = mstatus.mpp;
                     if (cpu.mode == .machine or cpu.mode == .supervisor) mstatus.mprv = false;

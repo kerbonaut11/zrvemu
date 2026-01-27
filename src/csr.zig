@@ -85,12 +85,16 @@ pub const Csr = enum(u12) {
             }
         }
 
-        pub fn mStatus(csrs: *Set) *MStatus {
+        pub fn mstatus(csrs: *Set) *MStatus {
             return @ptrCast(csrs.get(.mstatus));
         }
 
-        pub fn mTVec(csrs: *Set) *MTVec {
+        pub fn mtvec(csrs: *Set) *MTVec {
             return @ptrCast(csrs.get(.mtvec));
+        }
+
+        pub fn misa(csrs: *Set) *MISA {
+            return @ptrCast(csrs.get(.misa));
         }
     };
 
@@ -136,8 +140,39 @@ const MTVec = packed struct(u32) {
     addr: u30,
 };
 
+const MISA = packed struct(u32) {
+    a: bool = false,
+    b: bool = false,
+    c: bool = false,
+    d: bool = false,
+    e: bool = false,
+    f: bool = false,
+    g: bool = false,
+    h: bool = false,
+    i: bool = true,
+    j: bool = false,
+    k: bool = false,
+    l: bool = false,
+    m: bool = true,
+    n: bool = false,
+    o: bool = false,
+    p: bool = false,
+    q: bool = false,
+    r: bool = false,
+    s: bool = false,
+    t: bool = false,
+    u: bool = false,
+    v: bool = false,
+    w: bool = false,
+    x: bool = false,
+    y: bool = false,
+    z: bool = false,
+    warl: u4 = 0,
+    mxl: u2 = 1,
+};
+
 const testing = std.testing;
-test "MStatus Layout" {
-    try testing.expectEqual(@bitOffsetOf(MStatus, "mprv"), 17);
-    try testing.expectEqual(@bitOffsetOf(MStatus, "mpp"), 11);
+test "Layout" {
+    try testing.expectEqual(17, @bitOffsetOf(MStatus, "mprv"));
+    try testing.expectEqual(11, @bitOffsetOf(MStatus, "mpp"));
 }

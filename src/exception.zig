@@ -137,15 +137,15 @@ pub fn takeMachine(cpu: *Cpu, exception: Exception) void {
     cpu.csr(.mcause).* = @as(u32, @intFromBool(isInterrupt(exception))) << 31 | code(exception);
     cpu.csr(.mtval).* = mtval(cpu, exception);
 
-    const mtvec = cpu.csrs.mTVec();
-    cpu.pc = switch (cpu.csrs.mTVec().mode) {
+    const mtvec = cpu.csrs.mtvec();
+    cpu.pc = switch (mtvec.mode) {
         .direct => @as(u32, mtvec.addr) << 2,
         .vectored => @panic("todo"),
         _ => @panic("illegal mtvec"),
     };
 
     
-    const mstatus = cpu.csrs.mStatus();
+    const mstatus = cpu.csrs.mstatus();
     mstatus.mpie = mstatus.mie;
     mstatus.mie = false;
     mstatus.mpp = cpu.mode;
