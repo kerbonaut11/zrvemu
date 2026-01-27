@@ -74,12 +74,12 @@ fn goto(ctx: *Ctx, args: *ArgIter) void {
 
 fn setReg(ctx: *Ctx, args: *ArgIter) void {
     const reg_arg = args.next() orelse return;
-    const reg = reg: for (disasm.reg_names, 0..) |reg_name, i| {
+    const reg = reg: for (disasm.xreg_names, 0..) |reg_name, i| {
         if (std.mem.eql(u8, reg_name, reg_arg)) break :reg i;
     } else return;
 
     const val_arg = args.next() orelse return;
     const val = std.fmt.parseInt(u32, val_arg, 0) catch return;
 
-    ctx.machine.cpu.regs[reg] = val;
+    ctx.machine.cpu.xregs[reg] = val;
 }

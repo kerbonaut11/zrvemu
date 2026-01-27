@@ -69,7 +69,7 @@ fn renderDisasm(ctx: *Ctx, buf: *Buffer, area: Rect) !void {
             var style = ctx.theme.textStyle();
             if (pc == addr) style.bg = ctx.theme.highlight;
 
-            buf.setStringTruncated(inner.x, inner.y+@as(u16, @intCast(row)), fmt, inner.width, style);
+            buf.setStringTruncated(inner.x, inner.y+@as(u16, @intCast(row)), fmt, inner.width,style);
         }
 
         addr +%= @sizeOf(Instr);
@@ -92,7 +92,7 @@ fn renderCpuState(ctx: *Ctx, buf: *Buffer, area: Rect) !void {
 
     for (0..31) |row| {
         const reg = row+1;
-        const fmt = try std.fmt.bufPrint(&buffer, "{0s: <3} {1d: >12} 0x{1x:08}", .{disasm.reg_names[reg], ctx.machine.cpu.regs[reg]});
+        const fmt = try std.fmt.bufPrint(&buffer, "{0s: <3} {1d: >12} 0x{1x:08}", .{disasm.xreg_names[reg], ctx.machine.cpu.xregs[reg]});
         
         buf.setString(inner.x, inner.y+@as(u16, @intCast(row)), fmt, ctx.theme.baseStyle());
     }

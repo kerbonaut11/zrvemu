@@ -10,6 +10,10 @@ pub const Mode = enum(u2) {
 };
 
 pub const Csr = enum(u12) {
+    fflags = 0x001,
+    frm,
+    fcsr,
+
     cycle  = 0xc00,
     cycleh = 0xc80,
 

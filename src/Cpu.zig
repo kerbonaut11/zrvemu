@@ -13,7 +13,7 @@ pub const Mode = @import("csr.zig").Mode;
 next_pc: u32 align(64),
 pc: u32,
 
-regs: [32]u32,
+xregs: [32]u32,
 
 mode: Mode,
 csrs: Csr.Set,
@@ -25,7 +25,7 @@ pub const ra: Register = 1;
 
 pub fn init() Cpu {
     var cpu =  Cpu{
-        .regs = std.mem.zeroes([32]u32),
+        .xregs = std.mem.zeroes([32]u32),
         .pc = 0,
         .next_pc = 0,
         .mode = .machine,
@@ -65,7 +65,7 @@ pub fn exec(cpu: *Cpu) Exception!void {
     };
 
 
-    cpu.regs[zero] = 0;
+    cpu.xregs[zero] = 0;
     cpu.pc = cpu.next_pc;
     cpu.csr(.cycle).*  +%= 1;
     cpu.csr(.cycleh).* +%= @intFromBool(cpu.csrs.get(.cycle).* == 0);
@@ -83,9 +83,9 @@ fn op(cpu: *Cpu, instr: Instr, imm: bool) void {
 
     const funct7_modifier_bit = instr.r.funct7 == 0b0100000;
 
-    const rs1 = cpu.regs[instr.r.rs1];
+    const rs1 = cpu.xregs[instr.r.rs1];
     const rs1_signed = bit.u2i(rs1);
-    const rs2 = if (imm) instr.i.getImm() else cpu.regs[instr.r.rs2];
+    const rs2 = if (imm) instr.i.getImm() else cpu.xregs[instr.r.rs2];
     const rs2_signed = bit.u2i(rs2);
 
     const val = switch (instr.r.funct3.op) {
@@ -99,14 +99,14 @@ fn op(cpu: *Cpu, instr: Instr, imm: bool) void {
         .srl    => bit.arithShift(rs1_signed < 0 and funct7_modifier_bit, rs1, @truncate(rs2)),
     };
 
-    cpu.regs[instr.r.rd] = val;
+    cpu.xregs[instr.r.rd] = val;
 }
 
 fn mulDivOp(cpu: *Cpu, instr: Instr.RType) void {
-    const rs1 = cpu.regs[instr.rs1];
+    const rs1 = cpu.xregs[instr.rs1];
     const rs1_signed = bit.u2i(rs1);
     const rs1_sext: u64 = @bitCast(@as(i64, rs1_signed));
-    const rs2 = cpu.regs[instr.rs2];
+    const rs2 = cpu.xregs[instr.rs2];
     const rs2_signed = bit.u2i(rs2);
     const rs2_sext: u64 = @bitCast(@as(i64, rs2_signed));
 
@@ -121,7 +121,7 @@ fn mulDivOp(cpu: *Cpu, instr: Instr.RType) void {
         .remu   => if (rs2 != 0) rs1 % rs2 else rs1,
     };
 
-    cpu.regs[instr.rd] = val;
+    cpu.xregs[instr.rd] = val;
 }
 
 fn divOverflow(rs1: i32, rs2: i32) i32 {
@@ -136,28 +136,28 @@ fn remOverflow(rs1: i32, rs2: i32) i32 {
 }
 
 fn lui(cpu: *Cpu, instr: Instr.UType) void {
-    cpu.regs[instr.rd] = instr.getImm();
+    cpu.xregs[instr.rd] = instr.getImm();
 }
 
 fn auipc(cpu: *Cpu, instr: Instr.UType) void {
-    cpu.regs[instr.rd] = cpu.pc +% instr.getImm();
+    cpu.xregs[instr.rd] = cpu.pc +% instr.getImm();
 }
 
 fn jal(cpu: *Cpu, instr: Instr.UType) void {
-    cpu.regs[instr.rd] = cpu.next_pc;
+    cpu.xregs[instr.rd] = cpu.next_pc;
     cpu.next_pc = cpu.pc +% instr.getJTypeOffset();
 }
 
 fn jalr(cpu: *Cpu, instr: Instr.IType) void {
-    const target_addr = cpu.regs[instr.rs1] +% instr.getImm();
-    cpu.regs[instr.rd] = cpu.next_pc;
+    const target_addr = cpu.xregs[instr.rs1] +% instr.getImm();
+    cpu.xregs[instr.rd] = cpu.next_pc;
     cpu.next_pc = target_addr;
     cpu.next_pc &= ~@as(u32, 1);
 }
 
 fn branch(cpu: *Cpu, instr: Instr.SType) void {
-    const rs1 = cpu.regs[instr.rs1];
-    const rs2 = cpu.regs[instr.rs2];
+    const rs1 = cpu.xregs[instr.rs1];
+    const rs2 = cpu.xregs[instr.rs2];
 
     const condition_met = switch (instr.funct3.branch) {
         .eq  => rs1 == rs2,
@@ -174,7 +174,7 @@ fn branch(cpu: *Cpu, instr: Instr.SType) void {
 }
 
 fn load(cpu: *Cpu, instr: Instr.IType) !void {
-    const addr = cpu.regs[instr.rs1] +% instr.getImm();
+    const addr = cpu.xregs[instr.rs1] +% instr.getImm();
     const m= cpu.machine();
 
     const result: u32 = switch (instr.funct3.load) {
@@ -186,12 +186,12 @@ fn load(cpu: *Cpu, instr: Instr.IType) !void {
         _ => return error.IllegalInstruction,
     };
 
-    cpu.regs[instr.rd] = result;
+    cpu.xregs[instr.rd] = result;
 }
 
 fn store(cpu: *Cpu, instr: Instr.SType) !void {
-    const addr = cpu.regs[instr.rs1] +% instr.getImm();
-    const val = cpu.regs[instr.rs2];
+    const addr = cpu.xregs[instr.rs1] +% instr.getImm();
+    const val = cpu.xregs[instr.rs2];
     const m= cpu.machine();
 
     switch (instr.funct3.store) {
@@ -244,18 +244,18 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
 
         .csrrw, .csrrwi => {
             const csr_dest: Csr = @enumFromInt(instr.imm);
-            const rs1 = if (funct3 == .csrrw) cpu.regs[instr.rs1] else instr.rs1;
+            const rs1 = if (funct3 == .csrrw) cpu.xregs[instr.rs1] else instr.rs1;
 
-            if (instr.rd != zero) cpu.regs[instr.rd] = try cpu.csrs.read(csr_dest);
+            if (instr.rd != zero) cpu.xregs[instr.rd] = try cpu.csrs.read(csr_dest);
 
             try cpu.csrs.write(csr_dest, rs1);
         },
 
         .csrrs, .csrrsi, .csrrc, .csrrci => {
             const csr_dest: Csr = @enumFromInt(instr.imm);
-            const rs1 = if (funct3 == .csrrc or funct3 == .csrrs) cpu.regs[instr.rs1] else instr.rs1;
+            const rs1 = if (funct3 == .csrrc or funct3 == .csrrs) cpu.xregs[instr.rs1] else instr.rs1;
 
-            cpu.regs[instr.rd] = try cpu.csrs.read(csr_dest);
+            cpu.xregs[instr.rd] = try cpu.csrs.read(csr_dest);
 
             if (instr.rs1 == 0) return;
             const csr_val = cpu.csr(csr_dest).*;
