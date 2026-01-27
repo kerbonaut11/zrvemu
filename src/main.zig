@@ -17,4 +17,5 @@ test {
     _ = @import("csr.zig");
     _ = @import("tests.zig");
     _ = @import("exception.zig");
+    _ = @import("float.zig");
 }

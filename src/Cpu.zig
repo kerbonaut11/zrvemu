@@ -7,6 +7,7 @@ const bit = @import("bit_manip.zig");
 const disam = @import("disasm.zig");
 const exception = @import("exception.zig");
 const Exception = exception.Exception;
+const float = @import("float.zig");
 pub const Csr = @import("csr.zig").Csr;
 pub const Mode = @import("csr.zig").Mode;
 
@@ -14,6 +15,7 @@ next_pc: u32 align(64),
 pc: u32,
 
 xregs: [32]u32,
+fregs: float.Regs,
 
 mode: Mode,
 csrs: Csr.Set,
@@ -26,6 +28,7 @@ pub const ra: Register = 1;
 pub fn init() Cpu {
     var cpu =  Cpu{
         .xregs = std.mem.zeroes([32]u32),
+        .fregs = std.mem.zeroes(float.Regs),
         .pc = 0,
         .next_pc = 0,
         .mode = .machine,
@@ -61,6 +64,13 @@ pub fn exec(cpu: *Cpu) Exception!void {
         .branch   => cpu.branch(instr.s),
         .misc_mem => cpu.miscMem(instr.i),
         .system   => cpu.system(instr.i),
+        .op_fp    => @panic("todo"),
+        .load_fp  => @panic("todo"),
+        .store_fp => @panic("todo"),
+        .fmadd    => @panic("todo"),
+        .fmsub    => @panic("todo"),
+        .fnmadd   => @panic("todo"),
+        .fnmsub   => @panic("todo"),
         _ => return error.IllegalInstruction,
     };
 

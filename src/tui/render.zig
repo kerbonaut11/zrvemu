@@ -93,7 +93,7 @@ fn renderCpuState(ctx: *Ctx, buf: *Buffer, area: Rect) !void {
     for (0..31) |row| {
         const reg = row+1;
         const fmt = try std.fmt.bufPrint(&buffer, "{0s: <3} {1d: >12} 0x{1x:08}", .{disasm.xreg_names[reg], ctx.machine.cpu.xregs[reg]});
-        
+
         buf.setString(inner.x, inner.y+@as(u16, @intCast(row)), fmt, ctx.theme.baseStyle());
     }
 

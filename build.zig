@@ -12,11 +12,13 @@ pub fn build(b: *Build) void {
             .root_source_file = b.path("src/main.zig"),
             .target = b.standardTargetOptions(.{}),
             .optimize = b.standardOptimizeOption(.{}),
+            .link_libc = true,
         }),
     });
 
-    const mibu = b.dependency("zigtui", .{});
-    exe.root_module.addImport("zigtui", mibu.module("zigtui"));
+    const tui = b.dependency("zigtui", .{});
+    exe.root_module.addImport("zigtui", tui.module("zigtui"));
+    exe.root_module.addIncludePath(b.path("."));
 
     b.installArtifact(exe);
 

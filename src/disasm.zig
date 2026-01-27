@@ -2,6 +2,7 @@ const std = @import("std");
 const Writer = std.io.Writer;
 const instrs = @import("instr.zig");
 const Instr = instrs.Instr;
+const Funct3 = instrs.Funct3;
 const bit = @import("bit_manip.zig");
 const Cpu = @import("Cpu.zig");
 const tagName = std.enums.tagName;
@@ -30,11 +31,18 @@ pub fn format(disasm: @This(), w: *Writer) !void {
         .branch   => branch(w, instr.s),
         .system   => system(w, instr.i),
         .misc_mem => miscMem(w, instr.i),
+        .load_fp  => loadFP(w, instr.i),
+        .store_fp => storeFP(w, instr.s),
+        .op_fp    => opFP(w, instr.r),
+        .fmadd    => floatFused(w,  "madd", instr.r4),
+        .fmsub    => floatFused(w,  "msub", instr.r4),
+        .fnmadd   => floatFused(w, "nmadd", instr.r4),
+        .fnmsub   => floatFused(w, "nmsub", instr.r4),
         _ => w.print("unimp", .{}),
     };
 }
 
-const memnomic_fmt = "{s: <8}";
+const memnomic_fmt = "{s: <9}";
 
 pub const xreg_names = [32][]const u8{
     "zero",
@@ -48,6 +56,22 @@ pub const xreg_names = [32][]const u8{
     "s2","s3","s4","s5","s6","s7","s8","s9","s10","s11",
     "t3","t4","t5","t6",
 };
+
+pub const freg_names = [32][]const u8{
+    "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
+    "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23", "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
+};
+
+pub fn printFloatMemnomic(w: *Writer, memnomic: []const u8, instr: anytype) !void {
+    const instr_ = Instr{.bits = @bitCast(instr)};
+    try w.print("f{s}.{s}", .{memnomic, @tagName(instr_.floatWidth())});
+    try w.splatByteAll(' ', 6-memnomic.len);
+}
+
+pub fn printFloatMemnomicConv(w: *Writer, memnomic: []const u8, from: []const u8, to: []const u8) !void {
+    try w.print("f{s}.{s}.{s}", .{memnomic, from, to});
+    try w.splatByteAll(' ', 6-memnomic.len-from.len-to.len);
+}
 
 const OffsetReg = struct {
     offset: i32,
@@ -128,21 +152,21 @@ fn jalr(w: *Writer, instr: Instr.IType) !void {
 }
 
 fn branch(w: *Writer, instr: Instr.SType) !void {
-    try w.print("b{s: <6} {s}, {s}, {}", .{@tagName(instr.funct3.branch), xreg_names[instr.rs1], xreg_names[instr.rs2], bit.u2i(instr.getBTypeOffset())});
+    try w.print("b{s: <7} {s}, {s}, {}", .{@tagName(instr.funct3.branch), xreg_names[instr.rs1], xreg_names[instr.rs2], bit.u2i(instr.getBTypeOffset())});
 }
 
 fn load(w: *Writer, instr: Instr.IType) !void {
     const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
-    const funct3_name = tagName(instrs.Funct3.Load, instr.funct3.load)
+    const funct3_name = tagName(Funct3.Load, instr.funct3.load)
         orelse return w.print("unimp", .{});
-    try w.print("l{s: <6} {s}, {f}", .{funct3_name, xreg_names[instr.rd], addr});
+    try w.print("l{s: <7} {s}, {f}", .{funct3_name, xreg_names[instr.rd], addr});
 }
 
 fn store(w: *Writer, instr: Instr.SType) !void {
     const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
-    const funct3_name = tagName(instrs.Funct3.Store, instr.funct3.store)
+    const funct3_name = tagName(Funct3.Store, instr.funct3.store)
         orelse return w.print("unimp", .{});
-    try w.print("s{s: <6} {s}, {f}", .{funct3_name, xreg_names[instr.rs2], addr});
+    try w.print("s{s: <7} {s}, {f}", .{funct3_name, xreg_names[instr.rs2], addr});
 }
 
 fn system(w: *Writer, instr: Instr.IType) !void {
@@ -162,13 +186,13 @@ fn system(w: *Writer, instr: Instr.IType) !void {
         },
 
         .csrrwi, .csrrsi, .csrrci => {
-            const non_imm_funct3: instrs.Funct3.System = @enumFromInt(@intFromEnum(funct3) & 0b11);
+            const non_imm_funct3: Funct3.System = @enumFromInt(@intFromEnum(funct3) & 0b11);
             const csr_name = tagName(Cpu.Csr, @enumFromInt(instr.imm))
                 orelse return w.print("unimp", .{});
             try w.print(memnomic_fmt ++ "{s}, {s}, 0b{b}", .{@tagName(non_imm_funct3), xreg_names[instr.rd], csr_name, instr.rs1});
         },
 
-        _ => try w.print(memnomic_fmt, .{"unimp"})
+        _ => try w.print("unimp", .{})
     }
 }
 
@@ -182,4 +206,86 @@ fn miscMem(w: *Writer, instr: Instr.IType) !void {
     try w.print(memnomic_fmt, .{memnomic});
 }
 
+fn floatFused(w: *Writer, memnomic: []const u8, instr: Instr.R4Type) !void {
+    try printFloatMemnomic(w, memnomic, instr);
+    try w.print(
+        "{s}, {s}, {s}, {s}",
+        .{freg_names[instr.rd], freg_names[instr.rs1], freg_names[instr.rs2], freg_names[instr.rs2]}
+    );
+}
 
+fn fmvFloatType(instr: Instr.RType) []const u8 {
+    return switch ((Instr{.bits = @bitCast(instr)}).floatWidth()) {
+        .s => "w",
+        _ => "?",
+    };
+}
+
+fn opFP(w: *Writer, instr: Instr.RType) !void {
+    const funct5: instrs.FPOpFunct5 = @enumFromInt(instr.funct7 >> 2);
+    const memnomic = switch (funct5) {
+        .add, .sub, .div, .mul => @tagName(funct5),
+
+        .sign_inject => tagName(Funct3.FloatSignInject, instr.funct3.float_sign_inject)
+            orelse return w.print("unimp", .{}),
+
+        .minmax => if (instr.funct3.is_float_max) "max" else "min",
+
+        .compare => tagName(Funct3.FloatCompare, instr.funct3.float_compare)
+            orelse return w.print("unimp", .{}),
+
+        .class_or_move_x2f => if (instr.funct3.is_float_class) "class" else {
+            try printFloatMemnomicConv(w, "mv", "x", fmvFloatType(instr));
+            try w.print("{s}, {s}", .{xreg_names[instr.rd], freg_names[instr.rs1]});
+            return;
+        },
+
+        .move_f2x => {
+            try printFloatMemnomicConv(w, "mv", fmvFloatType(instr), "x");
+            try w.print("{s}, {s}", .{freg_names[instr.rd], xreg_names[instr.rs1]});
+            return;
+        },
+        
+        .float2int, .int2float => {
+            const int_type = tagName(instrs.FloatIntConversionMode, @enumFromInt(instr.rs2))
+                orelse return w.print("unimp", .{});
+            const float_type = tagName(instrs.FloatWidth, (Instr{.bits = @bitCast(instr)}).floatWidth())
+                orelse return w.print("unimp", .{});
+
+            if (funct5 == .int2float) {
+                try printFloatMemnomicConv(w, "cvt", int_type, float_type);
+                try w.print("{s}, {s}", .{freg_names[instr.rd], xreg_names[instr.rs1]});
+            } else {
+                try printFloatMemnomicConv(w, "cvt", float_type, int_type);
+                try w.print("{s}, {s}", .{xreg_names[instr.rd], freg_names[instr.rs1]});
+            }
+
+            return;
+        },
+
+
+        .sqrt => {
+            try printFloatMemnomic(w, "sqrt", instr);
+            try w.print("{s}, {s}", .{freg_names[instr.rd], freg_names[instr.rs1]});
+            return;
+        },
+    };
+
+    try printFloatMemnomic(w, memnomic, instr);
+    const rd_is_xreg = funct5 == .compare or funct5 == .class_or_move_x2f;
+    try w.print("{s}, {s}, {s}", .{(if (rd_is_xreg) xreg_names else freg_names)[instr.rd], freg_names[instr.rs1], freg_names[instr.rs2]});
+}
+
+fn loadFP(w: *Writer, instr: Instr.IType) !void {
+    const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
+    const memnomic = tagName(Funct3.FloatLoadStore, instr.funct3.float_load_store)
+        orelse return w.print("unimp", .{});
+    try w.print("fl{s: <6} {s}, {f}", .{memnomic, freg_names[instr.rd], addr});
+}
+
+fn storeFP(w: *Writer, instr: Instr.SType) !void {
+    const addr = OffsetReg{.offset = bit.u2i(instr.getImm()), .reg = instr.rs1};
+    const memnomic = tagName(Funct3.FloatLoadStore, instr.funct3.float_load_store)
+        orelse return w.print("unimp", .{});
+    try w.print("fs{s: <6} {s}, {f}", .{memnomic, freg_names[instr.rs1], addr});
+}

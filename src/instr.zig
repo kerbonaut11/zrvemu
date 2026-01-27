@@ -3,6 +3,7 @@ const Cpu = @import("Cpu.zig");
 const Register = Cpu.Register;
 const bit = @import("bit_manip.zig");
 const putBitRange = bit.putBitRange;
+const float = @import("float.zig");
 
 pub const Instr = packed union {
     pub const RType = packed struct {
@@ -51,6 +52,16 @@ pub const Instr = packed union {
         }
     };
 
+    pub const R4Type = packed struct {
+        opcode: Opcode,
+        rd: Register,
+        funct3: Funct3,
+        rs1: Register,
+        rs2: Register,
+        funct2: u2,
+        rs3: Register,
+    };
+
     pub const UType = packed struct {
         opcode: Opcode,
         rd: Register,
@@ -75,10 +86,15 @@ pub const Instr = packed union {
 
     bits: u32,
 
-    r: RType,
-    i: IType,
-    s: SType,
-    u: UType,
+    r:  RType,
+    r4: R4Type,
+    i:  IType,
+    s:  SType,
+    u:  UType,
+
+    pub fn floatWidth(instr: Instr) FloatWidth {
+        return @enumFromInt(instr.r4.funct2);
+    }
 };
 
 pub const Opcode = enum(u7) {
@@ -93,6 +109,14 @@ pub const Opcode = enum(u7) {
     branch   = 0b1100011,
     system   = 0b1110011,
     misc_mem = 0b0001111,
+
+    load_fp  = 0b0000111,
+    store_fp = 0b0100111,
+    op_fp    = 0b1010011,
+    fmadd    = 0b1000011,
+    fmsub    = 0b1000111,
+    fnmadd   = 0b1001011,
+    fnmsub   = 0b1001111,
     _,
 };
 
@@ -161,6 +185,25 @@ pub const Funct3 = packed union {
         _,
     };
 
+    pub const FloatLoadStore = enum(u3) {
+        w = 0b010,
+        _,
+    };
+
+    pub const FloatSignInject = enum(u3) {
+        sgnj  = 0b000,
+        sgnjn = 0b001,
+        sgnjx = 0b010,
+        _,
+    };
+
+    pub const FloatCompare = enum(u3) {
+        eq = 0b010,
+        lt = 0b001,
+        le = 0b000,
+        _,
+    };
+
     op: Op,
     mul_div_op: MulDivOp,
     load: Load,
@@ -168,6 +211,39 @@ pub const Funct3 = packed union {
     branch: Branch,
     system: System,
     misc_mem: MiscMem,
+
+    float_load_store: FloatLoadStore,
+    float_sign_inject: FloatSignInject,
+    float_compare: FloatCompare,
+    is_float_class: bool,
+    is_float_max: bool,
+    round_mode: float.RoundMode,
+};
+
+pub const FloatWidth = enum(u2) {
+    s = 0b00,
+    _,
+};
+
+pub const FPOpFunct5 = enum(u5) {
+    add  = 0b00000,
+    sub  = 0b00001,
+    mul  = 0b00010,
+    div  = 0b00011,
+    sqrt = 0b01011,
+    sign_inject = 0b00100,
+    minmax = 0b00101,
+    int2float = 0b11000,
+    float2int = 0b11010,
+    compare   = 0b10100,
+    move_f2x  = 0b11110,
+    class_or_move_x2f = 0b11100,
+};
+
+pub const FloatIntConversionMode = enum(u5) {
+    w  = 0b00000,
+    wu = 0b00001,
+    _,
 };
 
 pub const SystemPrivImm = enum(u12) {
