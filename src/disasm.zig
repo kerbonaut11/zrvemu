@@ -67,8 +67,9 @@ const OffsetReg = struct {
 fn opImm(w: *Writer, instr: Instr.IType) !void {
     const funct3 = instr.funct3.op;
     const funct7_modifier_bit = @as(Instr.RType, @bitCast(instr)).funct7 == 0b0100000;
-
-    if (funct3 == .add and instr.getImm() == 0) {
+    if (funct3 == .add and instr.rs1 == Cpu.zero) {
+        try w.print(memnomic_fmt ++ "{s}, {}", .{"li", reg_names[instr.rd], instr.getImm()});
+    } else if (funct3 == .add and instr.getImm() == 0) {
         try w.print(memnomic_fmt ++ "{s}, {s}", .{"mv", reg_names[instr.rd], reg_names[instr.rs1]});
     } else {
         const memnomic = if (funct7_modifier_bit and funct3 == .srl) "sra" else @tagName(funct3);
