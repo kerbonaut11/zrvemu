@@ -62,6 +62,18 @@ const tests = [_][]const u8{
     "rv32mi-p-sw-misaligned",
     "rv32mi-p-csr",
     "rv32mi-p-mcsr",
+
+    "rv32uf-p-fadd",
+    "rv32uf-p-fdiv",
+    "rv32uf-p-fmin",
+    "rv32uf-p-fcmp",
+    "rv32uf-p-fcvt",
+    "rv32uf-p-fcvt_w",
+    "rv32uf-p-fclass",
+    "rv32uf-p-move",
+    "rv32uf-p-recoding",
+    "rv32uf-p-ldst",
+    "rv32uf-p-fmadd",
 };
 
 fn runOfficialTest(file: std.fs.File) !void {

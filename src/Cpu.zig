@@ -64,13 +64,16 @@ pub fn exec(cpu: *Cpu) Exception!void {
         .branch   => cpu.branch(instr.s),
         .misc_mem => cpu.miscMem(instr.i),
         .system   => cpu.system(instr.i),
-        .op_fp    => @panic("todo"),
-        .load_fp  => @panic("todo"),
-        .store_fp => @panic("todo"),
-        .fmadd    => @panic("todo"),
-        .fmsub    => @panic("todo"),
-        .fnmadd   => @panic("todo"),
-        .fnmsub   => @panic("todo"),
+        .load_fp  => cpu.loadFP(instr.i),
+        .store_fp => cpu.storeFP(instr.s),
+        .op_fp    => switch (instr.floatWidth()) {
+            .s => cpu.opFP(float.S, u32, instr.r),
+            _ => return error.IllegalInstruction,
+        },
+        .fmadd    => cpu.fmadd(instr, false, false),
+        .fmsub    => cpu.fmadd(instr, false, true),
+        .fnmadd   => cpu.fmadd(instr, true,  false),
+        .fnmsub   => cpu.fmadd(instr, true,  true),
         _ => return error.IllegalInstruction,
     };
 
@@ -268,7 +271,7 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
             cpu.xregs[instr.rd] = try cpu.csrs.read(csr_dest);
 
             if (instr.rs1 == 0) return;
-            const csr_val = cpu.csr(csr_dest).*;
+            const csr_val = cpu.xregs[instr.rd];
             const masked = if (funct3 == .csrrs or funct3 == .csrrsi) csr_val | rs1 else csr_val & ~rs1;
             try cpu.csrs.write(csr_dest, masked);
         },
@@ -276,6 +279,94 @@ fn system(cpu: *Cpu, instr: Instr.IType) !void {
         _ => return error.IllegalInstruction,
     }
 }
+
+fn loadFP(cpu: *Cpu, instr: Instr.IType) !void {
+    const addr = cpu.xregs[instr.rs1]+%instr.getImm();
+    const m = cpu.machine();
+    switch (instr.funct3.float_load_store) {
+        .w => cpu.fregs.set(u32, instr.rd, try m.load(u32, addr)),
+        _ => return error.IllegalInstruction,
+    }
+}
+
+fn storeFP(cpu: *Cpu, instr: Instr.SType) !void {
+    const addr = cpu.xregs[instr.rs1]+%instr.getImm();
+    const m = cpu.machine();
+    switch (instr.funct3.float_load_store) {
+        .w => try m.store(u32, cpu.fregs.get(u32, instr.rs2), addr),
+        _ => return error.IllegalInstruction,
+    }
+}
+
+fn opFP(cpu: *Cpu, comptime F: type, comptime I: type, instr: Instr.RType) !void {
+    instr.funct3.round_mode.enable(cpu);
+
+    const funct5: instrs.FPOpFunct5 = @enumFromInt(instr.funct7 >> 2);
+    switch (funct5) {
+        .add => cpu.fregs.binOp(F, "add", instr.rd, instr.rs1, instr.rs2),
+        .sub => cpu.fregs.binOp(F, "sub", instr.rd, instr.rs1, instr.rs2),
+        .mul => cpu.fregs.binOp(F, "mul", instr.rd, instr.rs1, instr.rs2),
+        .div => cpu.fregs.binOp(F, "div", instr.rd, instr.rs1, instr.rs2),
+
+        .sqrt => cpu.fregs.sqrt(F, instr.rd, instr.rs1),
+
+        .minmax => cpu.fregs.minmax(F, instr.funct3.is_float_max, instr.rd, instr.rs1, instr.rs2),
+        .compare => cpu.xregs[instr.rd] = @intFromBool(switch (instr.funct3.float_compare) {
+            .eq => cpu.fregs.compare(F, "eq", instr.rs1, instr.rs2),
+            .le => cpu.fregs.compare(F, "le", instr.rs1, instr.rs2),
+            .lt => cpu.fregs.compare(F, "lt", instr.rs1, instr.rs2),
+            _ => return error.IllegalInstruction,
+        }),
+
+        .class_or_move_f2x => if (instr.funct3.is_float_class) {
+            cpu.xregs[instr.rd] = @as(u32, 1) << cpu.fregs.class(F, instr.rs1);
+        } else {
+            cpu.xregs[instr.rd] = cpu.fregs.get(I, instr.rs1);
+        },
+
+        .move_x2f => cpu.fregs.set(I, instr.rd, @truncate(cpu.xregs[instr.rs1])),
+
+        .int2float => switch (@as(instrs.FloatIntConversionMode, @enumFromInt(instr.rs2))) {
+            .w  => cpu.fregs.int2float(F, i32, instr.rd, @ptrCast(&cpu.xregs[instr.rs1])),
+            .wu => cpu.fregs.int2float(F, u32, instr.rd, @ptrCast(&cpu.xregs[instr.rs1])),
+            _ => return error.IllegalInstruction,
+        },
+
+        .float2int => switch (@as(instrs.FloatIntConversionMode, @enumFromInt(instr.rs2))) {
+            .w  => cpu.xregs[instr.rd] = @bitCast(cpu.fregs.float2int(F, i32, instr.rs1)),
+            .wu => cpu.xregs[instr.rd] = cpu.fregs.float2int(F, u32, instr.rs1),
+            _ => return error.IllegalInstruction,
+        },
+
+        .sign_inject => {
+            const ops = struct {
+                fn cpy(_: u1,   rs2: u1) u1 {return rs2;}
+                fn not(_: u1,   rs2: u1) u1 {return ~rs2;}
+                fn xor(rs1: u1, rs2: u1) u1 {return rs1^rs2;}
+            };
+            switch (instr.funct3.float_sign_inject) {
+                .sgnj  => cpu.fregs.signInject(F, instr.rd, instr.rs1, instr.rs2, ops.cpy),
+                .sgnjn => cpu.fregs.signInject(F, instr.rd, instr.rs1, instr.rs2, ops.not),
+                .sgnjx => cpu.fregs.signInject(F, instr.rd, instr.rs1, instr.rs2, ops.xor),
+                _ => return error.IllegalInstruction,
+            }
+        },
+
+
+        _ => return error.IllegalInstruction,
+    }
+
+    float.setFlags(cpu);
+}
+
+pub fn fmadd(cpu: *Cpu, instr: Instr, neg: bool, sub: bool) !void {
+    const r4 = instr.r4;
+    switch (instr.floatWidth()) {
+        .s => cpu.fregs.fusedMulAdd(float.S, r4.rd, r4.rs1, r4.rs2, r4.rs3, neg, sub),
+        _ => return error.IllegalInstruction,
+    }
+}
+
 
 pub inline fn csr(cpu: *Cpu, _csr: Csr) *u32 {
     return cpu.csrs.get(_csr);

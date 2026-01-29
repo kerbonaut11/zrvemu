@@ -257,10 +257,10 @@ fn opFP(w: *Writer, instr: Instr.RType) !void {
                 orelse return w.print("unimp", .{});
 
             if (funct5 == .int2float) {
-                try printFloatMemnomicConv(w, "cvt", int_type, float_type);
+                try printFloatMemnomicConv(w, "cvt", float_type, int_type);
                 try w.print("{s}, {s}", .{freg_names[instr.rd], xreg_names[instr.rs1]});
             } else {
-                try printFloatMemnomicConv(w, "cvt", float_type, int_type);
+                try printFloatMemnomicConv(w, "cvt", int_type, float_type);
                 try w.print("{s}, {s}", .{xreg_names[instr.rd], freg_names[instr.rs1]});
             }
 

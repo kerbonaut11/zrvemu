@@ -90,21 +90,30 @@ fn renderCpuState(ctx: *Ctx, buf: *Buffer, area: Rect) !void {
 
     var buffer: [64]u8 = undefined;
 
-    for (0..31) |row| {
-        const reg = row+1;
-        const fmt = try std.fmt.bufPrint(&buffer, "{0s: <3} {1d: >12} 0x{1x:08}", .{disasm.xreg_names[reg], ctx.machine.cpu.xregs[reg]});
+    const reg_kind: enum {x,f,d} = .x;
 
+    for (0..32) |row| {
+        const reg: u5 = @truncate(row);
+        const fmt = switch (reg_kind) {
+            .x => try std.fmt.bufPrint(&buffer, "{0s: <4} {1d: >12} 0x{1x:08}", .{disasm.xreg_names[reg], ctx.machine.cpu.xregs[reg]}),
+            .f => try std.fmt.bufPrint(&buffer, "{s: <3} {d: >23}", .{disasm.freg_names[reg], ctx.machine.cpu.fregs.get(f32, reg)}),
+            .d => @panic("todo"),
+        };
+        
         buf.setString(inner.x, inner.y+@as(u16, @intCast(row)), fmt, ctx.theme.baseStyle());
     }
 
     const pc_fmt = try std.fmt.bufPrint(&buffer, "pc               0x{x:08}", .{ctx.machine.cpu.pc});
-    buf.setString(inner.x, inner.y+31, pc_fmt, ctx.theme.baseStyle());
+    buf.setString(inner.x, inner.y+33, pc_fmt, ctx.theme.baseStyle());
 
     const cycle_fmt = try std.fmt.bufPrint(&buffer, "cycle {d: >21}", .{ctx.machine.cpu.cycle()});
-    buf.setString(inner.x, inner.y+32, cycle_fmt, ctx.theme.baseStyle());
+    buf.setString(inner.x, inner.y+34, cycle_fmt, ctx.theme.baseStyle());
 
     const mode_fmt = try std.fmt.bufPrint(&buffer, "mode {s: >22}", .{@tagName(ctx.machine.cpu.mode)});
-    buf.setString(inner.x, inner.y+33, mode_fmt, ctx.theme.baseStyle());
+    buf.setString(inner.x, inner.y+35, mode_fmt, ctx.theme.baseStyle());
+
+    const fcsr_fmt = try std.fmt.bufPrint(&buffer, "fcsr {b: >22}", .{ctx.machine.cpu.csr(.fcsr).*});
+    buf.setString(inner.x, inner.y+36, fcsr_fmt, ctx.theme.baseStyle());
 }
 
 fn renderCommandBar(ctx: *Ctx, buf: *Buffer, area: Rect) !void {

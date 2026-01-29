@@ -1,6 +1,8 @@
 const std = @import("std");
 const Cpu = @import("Cpu.zig");
 const Exception = @import("exception.zig").Exception;
+const float = @import("float.zig");
+const bit = @import("bit_manip.zig");
 
 pub const Mode = enum(u2) {
     user = 0b00,
@@ -74,16 +76,26 @@ pub const Csr = enum(u12) {
         }
 
         pub fn read(csrs: *Set, csr: Csr) !u32 {
-            switch (csr) {
-                else => return csrs.get(csr).*,
-                _ => return error.IllegalInstruction,
-            }
+            return switch (csr) {
+                .frm => @intFromEnum(csrs.fcsr().rm),
+                .fflags => csrs.get(.fcsr).* & bit.mask(5),
+                else => csrs.get(csr).*,
+                _ => error.IllegalInstruction,
+            };
         }
 
         pub fn write(csrs: *Set, csr: Csr, val: u32) !void {
             if (csr.isReadOnly()) return error.IllegalInstruction;
 
             switch (csr) {
+                .frm => csrs.fcsr().rm = @enumFromInt(val),
+                .fflags => {
+                    csrs.get(.fcsr).* &= ~@as(u32, bit.mask(5));
+                    csrs.get(.fcsr).* |= val & bit.mask(5);
+                },
+                .fcsr => {
+                    csrs.get(.fcsr).* = val & bit.mask(@bitSizeOf(float.Csr));
+                },
                 else => csrs.get(csr).* = val,
                 _ => return error.IllegalInstruction,
             }
@@ -99,6 +111,10 @@ pub const Csr = enum(u12) {
 
         pub fn misa(csrs: *Set) *MISA {
             return @ptrCast(csrs.get(.misa));
+        }
+
+        pub fn fcsr(csrs: *Set) *float.Csr {
+            return @ptrCast(csrs.get(.fcsr));
         }
     };
 
