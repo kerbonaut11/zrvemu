@@ -236,8 +236,9 @@ pub const FPOpFunct5 = enum(u5) {
     int2float = 0b11000,
     float2int = 0b11010,
     compare   = 0b10100,
-    move_f2x  = 0b11110,
-    class_or_move_x2f = 0b11100,
+    move_x2f  = 0b11110,
+    class_or_move_f2x = 0b11100,
+    _,
 };
 
 pub const FloatIntConversionMode = enum(u5) {

@@ -234,13 +234,17 @@ fn opFP(w: *Writer, instr: Instr.RType) !void {
         .compare => tagName(Funct3.FloatCompare, instr.funct3.float_compare)
             orelse return w.print("unimp", .{}),
 
-        .class_or_move_x2f => if (instr.funct3.is_float_class) "class" else {
+        .class_or_move_f2x => if (instr.funct3.is_float_class) {
+            try printFloatMemnomic(w, "class", instr);
+            try w.print("{s}, {s}", .{xreg_names[instr.rd], freg_names[instr.rs1]});
+            return;
+        } else {
             try printFloatMemnomicConv(w, "mv", "x", fmvFloatType(instr));
             try w.print("{s}, {s}", .{xreg_names[instr.rd], freg_names[instr.rs1]});
             return;
         },
 
-        .move_f2x => {
+        .move_x2f => {
             try printFloatMemnomicConv(w, "mv", fmvFloatType(instr), "x");
             try w.print("{s}, {s}", .{freg_names[instr.rd], xreg_names[instr.rs1]});
             return;
@@ -269,10 +273,12 @@ fn opFP(w: *Writer, instr: Instr.RType) !void {
             try w.print("{s}, {s}", .{freg_names[instr.rd], freg_names[instr.rs1]});
             return;
         },
+
+        _ => return w.print("unimp", .{}),
     };
 
     try printFloatMemnomic(w, memnomic, instr);
-    const rd_is_xreg = funct5 == .compare or funct5 == .class_or_move_x2f;
+    const rd_is_xreg = funct5 == .compare;
     try w.print("{s}, {s}, {s}", .{(if (rd_is_xreg) xreg_names else freg_names)[instr.rd], freg_names[instr.rs1], freg_names[instr.rs2]});
 }
 
